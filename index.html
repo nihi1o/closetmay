@@ -1,0 +1,740 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Ensemble</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Ensemble">
+<meta name="theme-color" content="#6E2B36">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='180'%20height='180'%3E%3Crect%20width='180'%20height='180'%20rx='40'%20fill='%23E9E5DC'/%3E%3Ctext%20x='50%25'%20y='62%25'%20font-family='Georgia,serif'%20font-size='108'%20font-weight='600'%20fill='%231A1815'%20text-anchor='middle'%3EE%3Ctspan%20fill='%236E2B36'%3E.%3C/tspan%3E%3C/text%3E%3C/svg%3E">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+  :root{--bg:#ECE3D5;--canvas:#F4ECDD;--card:#F8F2E8;--look:#EDE3D2;--ink:#2A1C12;--muted:#8A745E;--hair:#D9C8AF;--wine:#6E4327;--wine2:#57341e;--ok:#5f7a4e;--font-head:'Fraunces',serif;--sel-bg:var(--ink);--sel-fg:#fff;}
+  [data-theme="mono"]{--bg:#FFFFFF;--canvas:#FFFFFF;--card:#F7F7F7;--look:#F0F0F0;--ink:#0B0B0B;--muted:#8A8A8A;--hair:#E4E4E4;--wine:#E5251B;--wine2:#c01d15;--ok:#2f8f57;--font-head:'Inter',sans-serif;--sel-bg:#0B0B0B;--sel-fg:#fff;}
+  [data-theme="espresso"]{--bg:#ECE3D5;--canvas:#F4ECDD;--card:#F8F2E8;--look:#EDE3D2;--ink:#2A1C12;--muted:#8A745E;--hair:#D9C8AF;--wine:#6E4327;--wine2:#57341e;--ok:#5f7a4e;--font-head:'Fraunces',serif;--sel-bg:#2A1C12;--sel-fg:#fff;}
+  [data-theme="sage"]{--bg:#E3E7DB;--canvas:#EEF1E8;--card:#F4F6EF;--look:#E5EADD;--ink:#2A302A;--muted:#79836F;--hair:#D2D8C8;--wine:#5E7150;--wine2:#4c5d41;--ok:#3b7a5a;--font-head:'Space Grotesk',sans-serif;--sel-bg:#2A302A;--sel-fg:#fff;}
+  [data-theme="petal"]{--bg:#F7EEE8;--canvas:#FBF4EF;--card:#FFFFFF;--look:#F4E8E0;--ink:#2B221E;--muted:#9A877C;--hair:#EAD9CD;--wine:#D2735A;--wine2:#b85e47;--ok:#4f9d7a;--font-head:'Space Grotesk',sans-serif;--sel-bg:#2B221E;--sel-fg:#fff;}
+  [data-theme="slate"]{--bg:#E6EAEC;--canvas:#F2F5F6;--card:#FAFBFB;--look:#E4EAEC;--ink:#19242E;--muted:#6E8290;--hair:#D3DCE0;--wine:#2E7D8A;--wine2:#246470;--ok:#2f8f6f;--font-head:'Space Grotesk',sans-serif;--sel-bg:#19242E;--sel-fg:#fff;}
+  [data-theme="indigo"]{--bg:#161427;--canvas:#1B1830;--card:#221F38;--look:#262240;--ink:#ECEAF6;--muted:#8E88B0;--hair:#34304F;--wine:#A99CF5;--wine2:#9385e6;--ok:#7BB58A;--font-head:'Space Grotesk',sans-serif;--sel-bg:#ECEAF6;--sel-fg:#1B1830;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow:hidden}
+  #app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:560px;margin:0 auto;position:relative}
+  .top{padding:calc(14px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:flex-end;justify-content:space-between;flex:0 0 auto;border-bottom:1px solid var(--hair)}
+  .brand{font-family:var(--font-head);font-weight:600;font-size:24px;line-height:.9}
+  .brand .dot{color:var(--wine)}
+  .brand small{display:block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-top:4px;font-weight:400}
+  .gear{width:38px;height:38px;border:1px solid var(--hair);background:var(--card);border-radius:50%;display:grid;place-items:center;cursor:pointer}
+  .gear svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.7}
+  .gear.lit{border-color:var(--wine)}.gear.lit svg{stroke:var(--wine)}
+  .scroll{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 20px 24px}
+  .screen{display:none}.screen.on{display:block;animation:f .3s ease}
+  @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .eyebrow{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--wine);margin-bottom:7px}
+  .h{font-family:var(--font-head);font-size:22px;font-weight:500;margin-bottom:4px}
+  .sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:18px}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:14px}
+  .chips::-webkit-scrollbar{height:0}
+  .chip{flex:0 0 auto;border:1px solid var(--hair);background:transparent;color:var(--ink);font-size:13px;padding:9px 15px;border-radius:22px;cursor:pointer;white-space:nowrap;font-family:inherit}
+  .chip.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
+  .btn{border:none;border-radius:14px;padding:15px;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;width:100%}
+  .btn-primary{background:var(--wine);color:#fff}.btn-primary:active{background:var(--wine2)}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--hair)}.btn-ghost:active{background:var(--look)}
+  .btn[disabled]{opacity:.55}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px}
+  .item{position:relative;aspect-ratio:3/4;border-radius:14px;overflow:hidden;border:1px solid var(--hair);background:var(--look)}
+  .item img{width:100%;height:100%;object-fit:contain;padding:7px;display:block}
+  .item .lbl{position:absolute;left:0;right:0;bottom:0;padding:6px 7px;background:linear-gradient(transparent,rgba(0,0,0,.55));color:#fff;font-size:10px;line-height:1.2;display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .item .lt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .item .lw{flex:0 0 auto;font-family:'Space Mono',monospace;font-size:9px;opacity:.9}
+  .item .dot{position:absolute;top:7px;left:7px;width:13px;height:13px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85)}
+  .item .cat{position:absolute;top:7px;right:7px;background:rgba(26,24,21,.78);color:#fff;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.05em;padding:3px 6px;border-radius:5px;text-transform:uppercase}
+  .add-tile{aspect-ratio:3/4;border-radius:14px;border:1.5px dashed var(--wine);display:grid;place-items:center;color:var(--wine);background:transparent;cursor:pointer;font-family:inherit}
+  .add-tile .p{font-size:30px;font-weight:300;line-height:1}.add-tile div{text-align:center;font-size:12px;line-height:1.4}
+  .empty{text-align:center;padding:40px 10px;color:var(--muted)}
+  .empty .big{font-family:var(--font-head);font-size:20px;color:var(--ink);margin:14px 0 6px}
+  .look{background:var(--card);border:1px solid var(--hair);border-radius:20px;overflow:hidden;margin-bottom:16px}
+  .look .row{display:flex;gap:7px;padding:10px;background:var(--look);overflow-x:auto}
+  .look .row::-webkit-scrollbar{height:0}
+  .look .pc{flex:0 0 auto;width:86px;height:110px;border-radius:11px;overflow:hidden;border:1px solid var(--hair);background:#fff}
+  .look .pc img{width:100%;height:100%;object-fit:contain;padding:5px}
+  .flatlay{position:relative;width:100%;aspect-ratio:3/4;background:var(--look)}
+  .flatlay .slot{position:absolute}
+  .flatlay .slot img{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 6px 9px rgba(40,30,18,.20))}
+  .viewtoggle{display:inline-flex;gap:6px;background:var(--look);border:1px solid var(--hair);border-radius:24px;padding:4px;margin-bottom:18px}
+  .vchip{border:none;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;font-family:inherit;padding:7px 16px;border-radius:20px;cursor:pointer}
+  .vchip.on{background:var(--sel-bg);color:var(--sel-fg)}
+  .look .body{padding:13px 15px 15px}
+  .look .nm{font-family:var(--font-head);font-size:18px;font-weight:500;display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px}
+  .pill{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.06em;color:var(--wine);border:1px solid var(--wine);border-radius:18px;padding:3px 8px;white-space:nowrap;text-transform:uppercase}
+  .look .why{font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px}
+  .mini{width:100%;border:1px solid var(--hair);background:transparent;border-radius:11px;padding:10px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;color:var(--ink)}
+  .wcontrols{display:flex;gap:8px;margin-bottom:14px}
+  .wcontrols input{flex:1;min-width:0;border:1px solid var(--hair);border-radius:11px;padding:10px 12px;font-size:13px;font-family:inherit;background:var(--card);color:var(--ink)}
+  .wcontrols select{flex:0 0 auto;max-width:34%;border:1px solid var(--hair);border-radius:11px;padding:10px 6px;font-size:12px;font-family:inherit;background:var(--card);color:var(--ink)}
+  .lacts{display:flex;gap:7px;margin-top:12px}
+  .la{flex:1;border:1px solid var(--hair);background:transparent;border-radius:10px;padding:10px 4px;font-size:14px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer}
+  .la.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
+  .la.heart.on{background:var(--wine);color:#fff;border-color:var(--wine)}
+  .mini.saved{background:var(--wine);color:#fff;border-color:var(--wine)}
+  .nav{flex:0 0 auto;display:flex;border-top:1px solid var(--hair);background:var(--canvas);padding-bottom:env(safe-area-inset-bottom)}
+  .nav button{flex:1;border:none;background:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:11px 0 13px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:10.5px}
+  .nav button.on{color:var(--ink)}
+  .nav .ic{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .nav .addbtn{color:var(--wine)}
+  .sheet{position:absolute;inset:0;background:var(--canvas);z-index:20;transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.1,1);display:flex;flex-direction:column}
+  .sheet.up{transform:translateY(0)}
+  .shead{padding:calc(14px + env(safe-area-inset-top)) 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hair)}
+  .shead .t{font-family:var(--font-head);font-size:19px;font-weight:500}
+  .x{width:34px;height:34px;border-radius:50%;border:1px solid var(--hair);background:var(--card);cursor:pointer;font-size:16px;color:var(--ink)}
+  .sbody{flex:1;overflow-y:auto;padding:18px 20px calc(24px + env(safe-area-inset-bottom))}
+  .preview{width:100%;aspect-ratio:1/1;max-height:300px;border-radius:18px;overflow:hidden;background:var(--look);border:1px solid var(--hair);margin-bottom:16px;display:grid;place-items:center}
+  .preview img{width:100%;height:100%;object-fit:contain}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .field input,.field select{width:100%;border:1px solid var(--hair);border-radius:11px;padding:12px;font-size:15px;font-family:inherit;background:var(--card);color:var(--ink)}
+  .catrow{display:flex;flex-wrap:wrap;gap:7px}.catrow .chip{font-size:12.5px;padding:8px 13px}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+  .spinner.dark{border-color:rgba(110,43,54,.3);border-top-color:var(--wine)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .note{font-size:12px;color:var(--muted);line-height:1.6}
+  .ai-tag{display:inline-block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:12px;margin-left:8px;vertical-align:2px}
+  .ai-on{background:#e7efe5;color:var(--ok)}.ai-off{background:#f0ece2;color:var(--muted)}
+  .link{color:var(--wine);text-decoration:underline;cursor:pointer}
+  .toast{position:absolute;left:20px;right:20px;bottom:86px;background:var(--sel-bg);color:var(--sel-fg);border-radius:13px;padding:13px 16px;font-size:13px;z-index:40;opacity:0;transform:translateY(10px);transition:.3s;pointer-events:none;text-align:center}
+  .toast.show{opacity:1;transform:none}
+  .loadwrap{text-align:center;padding:40px 10px;color:var(--muted)}
+  .weather{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:11px 13px;margin-bottom:16px;font-size:13px}
+  .weather .wt{font-weight:600}
+  .weather .wbtn{margin-left:auto;border:1px solid var(--hair);background:transparent;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .wmanual{display:flex;gap:7px;margin-top:8px}
+  .wmanual .chip{font-size:12px;padding:7px 12px}
+  .bpgroup{margin-bottom:14px}
+  .bplabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  .bprow{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+  .bprow::-webkit-scrollbar{height:0}
+  .bpick{flex:0 0 auto;width:62px;height:78px;border-radius:11px;overflow:hidden;border:2px solid var(--hair);background:var(--look);cursor:pointer}
+  .bpick.on{border-color:var(--wine)}
+  .bpick img{width:100%;height:100%;object-fit:contain;padding:4px}
+  .stat-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+  .stat-row .sn{width:84px;flex:0 0 auto;color:var(--muted)}
+  .stat-bar{flex:1;height:18px;border-radius:6px;background:var(--look);overflow:hidden}
+  .stat-bar i{display:block;height:100%;background:var(--wine);border-radius:6px}
+  .stat-row .sv{width:26px;flex:0 0 auto;text-align:right;font-family:'Space Mono',monospace;font-size:12px}
+  .stat-card{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:14px;margin-bottom:14px}
+  .stat-card .sct{font-family:var(--font-head);font-size:17px;font-weight:500;margin-bottom:10px}
+  .insight{font-size:13px;line-height:1.6;color:var(--ink);background:var(--look);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+  .chiprow{display:flex;flex-wrap:wrap;gap:7px}
+  .tagpill{font-size:12px;border:1px solid var(--hair);border-radius:16px;padding:5px 11px;color:var(--ink)}
+  .tagpill b{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-left:5px}
+  .edit-tools{display:flex;gap:8px;margin-bottom:14px}
+  .etool{flex:1;border:1px solid var(--hair);background:transparent;border-radius:11px;padding:11px;font-size:13px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer}
+  .etool.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
+  .brushrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .blab{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  #brush{flex:1;accent-color:var(--wine)}
+  .cwrap{border-radius:16px;overflow:hidden;border:1px solid var(--hair);background-color:#faf8f3;
+    background-image:linear-gradient(45deg,#e3ddd2 25%,transparent 25%),linear-gradient(-45deg,#e3ddd2 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e3ddd2 75%),linear-gradient(-45deg,transparent 75%,#e3ddd2 75%);
+    background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0;display:grid;place-items:center;min-height:200px;margin-bottom:14px}
+  .cwrap canvas{max-width:100%;max-height:46vh;touch-action:none;display:block;cursor:crosshair}
+  .edit-foot{display:flex;gap:10px}.edit-foot .mini{flex:1}
+  .seclabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .themegrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .themecard{display:flex;align-items:center;gap:10px;border:1px solid var(--hair);background:var(--card);border-radius:14px;padding:12px;font-size:13.5px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer;text-align:left}
+  .themecard.on{border-color:var(--wine);box-shadow:0 0 0 1.5px var(--wine) inset}
+  .tsw{display:inline-flex;border-radius:7px;overflow:hidden;border:1px solid var(--hair);flex:0 0 auto}
+  .tsw i{width:13px;height:24px;display:block}
+</style>
+</head>
+<body data-theme="espresso">
+<div id="app">
+  <div class="top">
+    <div class="brand">Ensemble<span class="dot">.</span><small>your stylist</small></div>
+    <div class="gear" id="gear" onclick="openSettings()" aria-label="Settings">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>
+    </div>
+  </div>
+
+  <div class="scroll" id="scroll">
+    <section class="screen on" id="v-wardrobe">
+      <div class="eyebrow">Your closet</div>
+      <div class="h">Wardrobe<span class="ai-tag ai-off" id="aiBadge">manual</span></div>
+      <div class="sub">Photograph each piece — the background is cut out automatically, on your phone. Everything stays on your device.</div>
+      <button class="mini" style="width:auto;padding:8px 14px;margin-bottom:14px" onclick="openStats()">📊 Wardrobe stats</button>
+      <div class="chips" id="wfilter"></div>
+      <div class="wcontrols" id="wcontrols"></div>
+      <div id="wgrid"></div>
+    </section>
+
+    <section class="screen" id="v-style">
+      <div class="eyebrow">Built from your pieces</div>
+      <div class="h">Style me</div>
+      <div class="sub">Pick an occasion and get looks assembled from what you own.</div>
+      <div id="weather"></div>
+      <div class="chips" id="occ"></div>
+      <div class="viewtoggle"><button class="vchip on" id="vFlat" onclick="setLayout('flat')">Flat-lay</button><button class="vchip" id="vRow" onclick="setLayout('row')">Pieces</button></div>
+      <button class="btn btn-primary" id="styleBtn" style="margin-top:6px">Style me</button>
+      <button class="btn btn-ghost" style="margin-top:10px" onclick="openBuild()">Build your own look</button>
+      <div id="looks" style="margin-top:20px"></div>
+    </section>
+
+    <section class="screen" id="v-saved">
+      <div class="eyebrow">Kept looks</div>
+      <div class="h">Saved</div>
+      <div class="sub">Outfits you loved.</div>
+      <div id="savedList"></div>
+    </section>
+  </div>
+
+  <div class="nav">
+    <button class="on" data-v="wardrobe" onclick="go('wardrobe',this)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3l4 3-4 2-4-2 4-3z"/><path d="M4 8v11h16V8"/><path d="M12 8v11"/></svg>Wardrobe</button>
+    <button class="addbtn" onclick="startAdd()"><svg class="ic" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg>Add</button>
+    <button data-v="style" onclick="go('style',this)"><svg class="ic" viewBox="0 0 24 24"><path d="M5 3v18M19 3v18M5 8h14M5 14h14"/></svg>Style</button>
+    <button data-v="saved" onclick="go('saved',this)"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 017-2.5A4 4 0 0119 10c0 5.5-7 10-7 10z"/></svg>Saved</button>
+  </div>
+
+  <div class="sheet" id="addSheet"><div class="shead"><div class="t" id="addTitle">Add a piece</div><button class="x" onclick="closeAdd()">✕</button></div><div class="sbody" id="addBody"></div></div>
+
+  <div class="sheet" id="setSheet">
+    <div class="shead"><div class="t">Settings</div><button class="x" onclick="closeSettings()">✕</button></div>
+    <div class="sbody" id="setBody"></div>
+  </div>
+
+  <div class="sheet" id="buildSheet">
+    <div class="shead"><div class="t">Build a look</div><button class="x" onclick="closeBuild()">✕</button></div>
+    <div class="sbody">
+      <div id="buildPreview"></div>
+      <button class="btn btn-primary" style="margin:4px 0 6px" onclick="saveBuilt()">Save this look</button>
+      <div class="note" style="text-align:center;margin-bottom:14px">Tap pieces to add or swap them.</div>
+      <div id="buildPicker"></div>
+    </div>
+  </div>
+
+  <div class="sheet" id="statsSheet">
+    <div class="shead"><div class="t">Wardrobe stats</div><button class="x" onclick="closeStats()">✕</button></div>
+    <div class="sbody" id="statsBody"></div>
+  </div>
+
+  <div class="sheet" id="editSheet">
+    <div class="shead"><div class="t">Touch up</div><button class="x" onclick="closeEdit()">✕</button></div>
+    <div class="sbody">
+      <div class="note" style="margin-bottom:12px">Drag on the image. <b>Erase</b> removes leftover background; <b>Restore</b> paints the garment back.</div>
+      <div class="edit-tools">
+        <button class="etool on" id="tErase" onclick="setMode('erase')">Erase</button>
+        <button class="etool" id="tRestore" onclick="setMode('restore')">Restore</button>
+        <button class="etool" onclick="undoEdit()">Undo</button>
+      </div>
+      <div class="brushrow"><span class="blab">Brush</span><input type="range" id="brush" min="8" max="80" value="34" oninput="ed.size=+this.value"></div>
+      <div class="cwrap" id="cwrap"></div>
+      <div class="edit-foot">
+        <button class="mini" onclick="closeEdit()">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" onclick="applyEdit()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none">
+  <input type="file" accept="image/*" id="multiInput" multiple style="display:none">
+  <input type="file" accept="application/json" id="importInput" style="display:none">
+  <input type="file" accept="image/*" capture="environment" id="tagInput" style="display:none">
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
+const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Accessory"];
+const MODEL="claude-sonnet-4-6";
+const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[]};
+const SEASONS=["Any","Warm","Cold"];
+const $=id=>document.getElementById(id);
+
+/* ---- key (on-device only) ---- */
+function getKey(){try{return localStorage.getItem('ensemble:key')||"";}catch(e){return"";}}
+function setKey(v){try{v?localStorage.setItem('ensemble:key',v):localStorage.removeItem('ensemble:key');}catch(e){}}
+function hasAI(){return!!getKey();}
+
+/* ---- themes ---- */
+const THEMES=[
+  {id:'mono',name:'Mono',sw:['#FFFFFF','#E5251B','#0B0B0B']},
+  {id:'espresso',name:'Espresso',sw:['#ECE3D5','#6E4327','#2A1C12']},
+  {id:'sage',name:'Sage',sw:['#E3E7DB','#5E7150','#2A302A']},
+  {id:'petal',name:'Petal',sw:['#F7EEE8','#D2735A','#2B221E']},
+  {id:'slate',name:'Slate',sw:['#E6EAEC','#2E7D8A','#19242E']},
+  {id:'indigo',name:'Indigo',sw:['#161427','#A99CF5','#ECEAF6']}
+];
+const DEF_THEME='espresso';
+function getTheme(){try{const t=localStorage.getItem('ensemble:theme');return THEMES.some(x=>x.id===t)?t:DEF_THEME;}catch(e){return DEF_THEME;}}
+function applyTheme(t){document.body.setAttribute('data-theme',t);try{localStorage.setItem('ensemble:theme',t);}catch(e){}}
+function pickTheme(t){applyTheme(t);renderSettings();}
+
+/* ---- IndexedDB ---- */
+function idb(){return new Promise((res,rej)=>{const r=indexedDB.open('ensemble',1);
+  r.onupgradeneeded=()=>{const db=r.result;if(!db.objectStoreNames.contains('items'))db.createObjectStore('items',{keyPath:'id'});if(!db.objectStoreNames.contains('looks'))db.createObjectStore('looks',{keyPath:'sid'});};
+  r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);});}
+async function idbAll(s){try{const db=await idb();return await new Promise(res=>{const q=db.transaction(s).objectStore(s).getAll();q.onsuccess=()=>res(q.result||[]);q.onerror=()=>res([]);});}catch(e){return[];}}
+async function idbPut(s,v){try{const db=await idb();return await new Promise(res=>{const t=db.transaction(s,'readwrite');t.objectStore(s).put(v);t.oncomplete=res;t.onerror=res;});}catch(e){}}
+async function idbDel(s,id){try{const db=await idb();return await new Promise(res=>{const t=db.transaction(s,'readwrite');t.objectStore(s).delete(id);t.oncomplete=res;t.onerror=res;});}catch(e){}}
+
+/* ---- image resize ---- */
+function resize(file,max=640){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
+  img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));const w=Math.round(img.width*r),h=Math.round(img.height*r);
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',0.82));};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej();};img.src=url;});}
+
+/* ---- background removal (on-device, no key) ---- */
+let _rmbg=null;
+async function loadRMBG(){if(_rmbg)return _rmbg;
+  const mod=await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.5.8/+esm');
+  _rmbg=mod.removeBackground||mod.default;return _rmbg;}
+function blobToDataURL(b){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(b);});}
+function rotateImage(dataURL,deg){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;const c=document.createElement('canvas');
+  if(deg===90||deg===270){c.width=h;c.height=w;}else{c.width=w;c.height=h;}
+  const ctx=c.getContext('2d');ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-w/2,-h/2);
+  res(c.toDataURL('image/png'));};img.onerror=rej;img.src=dataURL;});}
+async function rotatePending(){const p=state.pending;if(!p)return;
+  try{p.photo=await rotateImage(p.photo,90);if(p.orig)p.orig=await rotateImage(p.orig,90);}catch(_){toast("Couldn't rotate");return;}
+  renderAddBody({});}
+async function cutout(dataURL){
+  const fn=await loadRMBG();
+  const inBlob=await(await fetch(dataURL)).blob();
+  const outBlob=await fn(inBlob,{output:{format:'image/png'}});
+  return await blobToDataURL(outBlob);
+}
+
+/* ---- AI (uses your own key) ---- */
+async function callAI(content,maxTokens){
+  const key=getKey();if(!key)throw new Error("no key");
+  const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+    headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body:JSON.stringify({model:MODEL,max_tokens:maxTokens,messages:[{role:"user",content}]})});
+  if(!r.ok)throw new Error("AI "+r.status);
+  const d=await r.json();return(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join("\n");
+}
+function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
+async function aiTag(dataURL){const base64=dataURL.split(',')[1];
+  const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold).'}],400);
+  return parseJSON(txt);}
+async function aiStyle(items,occasion,wnote){
+  const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear. Make at least one of the three outfits a layered look when the wardrobe allows.'+(wnote||'')+tasteSummary()+' Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  return parseJSON(txt);}
+
+/* ---- local fallback styler ---- */
+function pick(a){return a[Math.floor(Math.random()*a.length)];}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function localStyle(items,occasion,weather){
+  let pool=items;
+  if(weather&&weather.bucket){const b=weather.bucket;
+    const f=items.filter(i=>{const s=i.season||'Any';if(s==='Any')return true;if(b==='cold')return s!=='Warm';if(b==='warm')return s!=='Cold';return true;});
+    if(f.length>=3)pool=f;}
+  const cold=weather&&weather.bucket==='cold';
+  const by=c=>pool.filter(i=>i.category===c);
+  const tops=by('Top'),bottoms=by('Bottom'),dresses=by('Dress'),shoes=by('Shoes'),outer=by('Outerwear'),acc=by('Accessory');
+  const bases=[];dresses.forEach(d=>bases.push([d]));tops.forEach(t=>bottoms.forEach(b=>bases.push([t,b])));shuffle(bases);
+  const looks=[];for(const base of bases){if(looks.length>=3)break;const ids=base.map(x=>x.id);let layered=false;
+    if(base.length===2){const others=tops.filter(t=>t.id!==base[0].id);if(others.length&&Math.random()<(cold?0.7:0.32)){ids.push(pick(others).id);layered=true;}}
+    if(shoes.length)ids.push(pick(shoes).id);
+    if(outer.length&&Math.random()<(cold?0.92:0.4)){ids.push(pick(outer).id);layered=true;}
+    if(acc.length&&Math.random()<.4)ids.push(pick(acc).id);
+    looks.push({name:layered?"Layered "+occasion.toLowerCase():occasion+" pairing",trend:layered?"Layered":(cold?"Layered up":"From your closet"),itemIds:ids,why:layered?"Pieces layered together from your closet.":"A clean combination built from pieces you own."});}
+  return looks;}
+
+/* ---- render ---- */
+function itemById(id){return state.items.find(i=>i.id===id);}
+function refreshAIBadge(){const b=$('aiBadge');if(hasAI()){b.className="ai-tag ai-on";b.textContent="AI on";$('gear').classList.add('lit');}else{b.className="ai-tag ai-off";b.textContent="manual";$('gear').classList.remove('lit');}}
+function renderWardrobe(){
+  $('wfilter').innerHTML=["All",...CATS].map(c=>`<button class="chip ${state.filter===c?'on':''}" onclick="setFilter('${c}')">${c}</button>`).join("");
+  $('wcontrols').innerHTML=`
+    <input id="wq" placeholder="Search brand, colour, type…" value="${(state.q||'').replace(/"/g,'&quot;')}" oninput="onSearch(this.value)">
+    <select id="wseason" onchange="state.fseason=this.value;renderGrid()">${["All",...SEASONS].map(s=>`<option ${s===state.fseason?'selected':''}>${s}</option>`).join("")}</select>
+    <select id="wsort" onchange="state.sort=this.value;renderGrid()"><option value="recent" ${state.sort==='recent'?'selected':''}>Recent</option><option value="least" ${state.sort==='least'?'selected':''}>Least worn</option></select>`;
+  renderGrid();
+}
+function onSearch(v){state.q=v;renderGrid();}
+function filteredItems(){
+  const q=(state.q||'').trim().toLowerCase();
+  let list=state.items.filter(i=>{
+    if(state.filter!=="All"&&i.category!==state.filter)return false;
+    if(state.fseason!=="All"){const s=i.season||"Any";if(s!=="Any"&&s!==state.fseason)return false;}
+    if(q){const hay=[(i.brand||''),(i.color||''),(i.subtype||''),(i.category||'')].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    return true;
+  });
+  if(state.sort==='least')list=list.slice().sort((a,b)=>(a.wornCount||0)-(b.wornCount||0));
+  return list;
+}
+function renderGrid(){const g=$('wgrid');
+  if(!state.items.length){g.innerHTML=`<div class="empty"><div style="font-size:34px">🧥</div><div class="big">Your closet is empty</div>
+    <div style="font-size:13px;line-height:1.6">Tap <b>Add</b> below and photograph your first piece.<br>Build it up a few items at a time.</div></div>`;return;}
+  const list=filteredItems();
+  if(!list.length){g.innerHTML=`<div class="empty"><div class="big" style="margin-top:24px">No pieces match</div><div style="font-size:13px">Try clearing the search or filters.</div></div>`;return;}
+  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt="">
+    <span class="dot" style="background:${i.colorHex||'#bbb'}"></span><span class="cat">${i.category}</span>
+    <span class="lbl"><span class="lt">${i.brand?i.brand+' · ':''}${i.subtype||i.color||''}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
+    +`<button class="add-tile" onclick="startAdd()"><div><div class="p">+</div>Add</div></button></div>`;}
+function renderOcc(){$('occ').innerHTML=OCCASIONS.map(o=>`<button class="chip ${state.occasion===o?'on':''}" onclick="setOcc('${o}')">${o}</button>`).join("");}
+function flatLayHTML(pcs){
+  const tops=pcs.filter(p=>p.category==='Top');
+  const outers=pcs.filter(p=>p.category==='Outerwear');
+  const dress=pcs.find(p=>p.category==='Dress');
+  const bottom=pcs.find(p=>p.category==='Bottom');
+  const shoes=pcs.find(p=>p.category==='Shoes');
+  const accs=pcs.filter(p=>p.category==='Accessory');
+  const slot=(p,style)=>p?`<div class="slot" style="${style}"><img src="${p.photo}" alt=""></div>`:'';
+  let h='';
+  if(dress){
+    const up=outers[0];
+    if(up){h+=slot(up,'left:2%;top:3%;width:46%;height:60%;transform:rotate(-5deg)');h+=slot(dress,'right:3%;top:6%;width:50%;height:72%;transform:rotate(4deg)');}
+    else h+=slot(dress,'left:23%;top:4%;width:54%;height:74%;transform:rotate(2deg)');
+  }else{
+    const uppers=[...tops,...outers].slice(0,3);   // base layer -> outer, left to right
+    if(uppers.length<=1){h+=slot(uppers[0],'left:22%;top:3%;width:56%;height:44%');}
+    else if(uppers.length===2){h+=slot(uppers[0],'left:2%;top:2%;width:50%;height:46%;transform:rotate(-6deg)');h+=slot(uppers[1],'right:2%;top:6%;width:46%;height:42%;transform:rotate(6deg)');}
+    else{h+=slot(uppers[0],'left:0%;top:6%;width:38%;height:40%;transform:rotate(-9deg)');h+=slot(uppers[1],'left:31%;top:1%;width:40%;height:44%;transform:rotate(0deg)');h+=slot(uppers[2],'right:0%;top:6%;width:38%;height:40%;transform:rotate(9deg)');}
+    h+=slot(bottom,'left:24%;top:42%;width:52%;height:42%;transform:rotate(-2deg)');
+  }
+  h+=slot(shoes,'left:32%;bottom:2%;width:36%;height:20%;transform:rotate(3deg)');
+  if(accs[0])h+=slot(accs[0],'right:1%;top:8%;width:22%;height:20%;transform:rotate(8deg)');
+  if(accs[1])h+=slot(accs[1],'left:1%;bottom:25%;width:20%;height:18%;transform:rotate(-8deg)');
+  return `<div class="flatlay">${h}</div>`;
+}
+function lookVisual(pcs){
+  if(state.layout==='row')return `<div class="row">${pcs.map(p=>`<div class="pc"><img src="${p.photo}" alt=""></div>`).join("")}</div>`;
+  return flatLayHTML(pcs);
+}
+function encLook(l){return encodeURIComponent(JSON.stringify(l)).replace(/'/g,"%27");}
+function getLook(btn){const el=btn.closest('.look');return el?JSON.parse(decodeURIComponent(el.getAttribute('data-look'))):null;}
+function lookCard(l,opts){
+  const pcs=(l.itemIds||[]).map(id=>itemById(id)).filter(Boolean);if(!pcs.length)return"";
+  const sig=sigOf(l),r=ratingOf(sig),saved=opts.saved||!!findSaved(sig);
+  return `<div class="look" data-look='${encLook(l)}'>${lookVisual(pcs)}<div class="body">
+    <div class="nm">${l.name||'Look'}<span class="pill">${l.trend||''}</span></div>
+    <div class="why">${l.why||''}</div>
+    <div class="lacts">
+      <button class="la ${r==='like'?'on':''}" onclick='rateLook(this,"like")'>👍</button>
+      <button class="la ${r==='dislike'?'on':''}" onclick='rateLook(this,"dislike")'>👎</button>
+      <button class="la" onclick='wearLook(this)'>Wear</button>
+      <button class="la heart ${saved?'on':''}" onclick='toggleSave(this)'>${saved?'♥':'♡'}</button>
+    </div></div></div>`;}
+function renderSaved(){const el=$('savedList');if(!state.saved.length){el.innerHTML=`<div class="empty"><div style="font-size:30px">♡</div><div class="big">No saved looks yet</div><div style="font-size:13px">Style yourself and tap the heart on a look.</div></div>`;return;}el.innerHTML=state.saved.map(l=>lookCard(l,{saved:true})).join("");}
+
+/* ---- actions ---- */
+function go(v,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$('v-'+v).classList.add('on');
+  document.querySelectorAll('.nav button[data-v]').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');$('scroll').scrollTop=0;if(v==='saved')renderSaved();if(v==='style')renderWeather();}
+function setFilter(c){state.filter=c;document.querySelectorAll('#wfilter .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));renderGrid();}
+function setOcc(o){state.occasion=o;renderOcc();}
+
+function newId(){return 'it_'+Date.now()+'_'+Math.floor(Math.random()*1e5);}
+function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
+function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
+function renderChooser(){$('addBody').innerHTML=`
+  <div class="note" style="text-align:center;margin:8px 0 18px">How would you like to add?</div>
+  <button class="btn btn-primary" style="margin-bottom:12px" onclick="startSingle()">Take one photo</button>
+  <button class="btn btn-ghost" onclick="startMulti()">Pick several from gallery</button>
+  <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">“Several” lets you select many photos at once, then tag them one by one.</div>`;}
+function startSingle(){$('fileInput').value="";$('fileInput').click();}
+function startMulti(){$('multiInput').value="";$('multiInput').click();}
+
+async function processPhoto(){const p=state.pending;
+  try{const png=await cutout(p.orig);p.photo=png;renderAddBody({cutout:true});}catch(_){p.bgFailed=true;}
+  if(hasAI()){renderAddBody({loading:true});try{const tags=await aiTag(p.photo);Object.assign(p,tags);renderAddBody({});}catch(_){renderAddBody({failed:true});}}
+  else renderAddBody({manual:true});}
+
+$('fileInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  state.batch=null;state.editingId=null;
+  let dataURL;try{dataURL=await resize(file);}catch(_){toast("Couldn't read that photo");return;}
+  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:"Top"};
+  setAddTitle("Add a piece");openAdd();renderAddBody({cutout:true});await processPhoto();
+});
+$('multiInput').addEventListener('change',async e=>{
+  const files=Array.from(e.target.files||[]);if(!files.length)return;
+  state.editingId=null;toast("Preparing "+files.length+" photos…");
+  const q=[];for(const f of files){try{const d=await resize(f);q.push({id:newId(),photo:d,orig:d,category:"Top"});}catch(_){}}
+  if(!q.length){toast("Couldn't read those photos");return;}
+  state.batch=q;state.batchIdx=0;openAdd();presentBatchItem();
+});
+async function presentBatchItem(){state.pending=state.batch[state.batchIdx];
+  setAddTitle("Tag ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({cutout:true});await processPhoto();}
+function skipBatch(){if(!state.batch)return;state.batchIdx++;if(state.batchIdx<state.batch.length)presentBatchItem();else finishBatch();}
+function finishBatch(){const n=state.batch?state.batch.length:0;state.batch=null;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast("Done adding pieces");}
+
+function openAdd(){$('addSheet').classList.add('up');}
+function closeAdd(){$('addSheet').classList.remove('up');state.pending=null;state.editingId=null;state.batch=null;}
+function renderAddBody(o){const p=state.pending;if(!p)return;
+  if(o.cutout){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Removing the background…<div style="font-size:11px;margin-top:6px">First time is a little longer (one-time setup)</div></div>`;return;}
+  if(o.loading){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading your piece…</div>`;return;}
+  if(o.tag){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading the tag…</div>`;return;}
+  const cat=p.category||"Top";const editing=!!state.editingId;const inBatch=!!state.batch;
+  const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(editing?"Save changes":"Add to wardrobe");
+  $('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="mini" style="flex:1" onclick="syncFields();rotatePending()">↻ Rotate</button>
+      <button class="mini" style="flex:1" onclick="syncFields();openEdit()">✎ Touch up</button>
+      <button class="mini" style="flex:1" onclick="syncFields();scanTag()">⌗ Tag</button>
+    </div>
+    ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
+    ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
+    <div class="field"><label>Category</label><div class="catrow" id="catRow">${CATS.map(c=>`<button class="chip ${c===cat?'on':''}" onclick="setPendingCat('${c}')">${c}</button>`).join("")}</div></div>
+    <div class="field"><label>Brand</label><input id="f-brand" value="${(p.brand||'').replace(/"/g,'&quot;')}" placeholder="e.g. COS"></div>
+    <div class="field"><label>What is it</label><input id="f-sub" value="${(p.subtype||'').replace(/"/g,'&quot;')}" placeholder="e.g. white cotton shirt"></div>
+    <div class="field"><label>Colour</label><input id="f-col" value="${(p.color||'').replace(/"/g,'&quot;')}" placeholder="e.g. camel"></div>
+    <div style="display:flex;gap:10px">
+      <div class="field" style="flex:1"><label>Formality</label><select id="f-form">${["Casual","Smart","Formal"].map(x=>`<option ${x===(p.formality||'Casual')?'selected':''}>${x}</option>`).join("")}</select></div>
+      <div class="field" style="flex:1"><label>Season</label><select id="f-season">${SEASONS.map(x=>`<option ${x===(p.season||'Any')?'selected':''}>${x}</option>`).join("")}</select></div>
+    </div>
+    <button class="btn btn-primary" onclick="saveItem()">${primary}</button>
+    ${inBatch?`<button class="mini" style="margin-top:10px" onclick="skipBatch()">Skip this one</button>`:``}
+    ${editing?`<button class="mini" style="margin-top:10px;color:var(--wine);border-color:var(--wine)" onclick="deleteCurrent()">Delete this piece</button>`:``}`;}
+function setPendingCat(c){state.pending.category=c;document.querySelectorAll('#catRow .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));}
+
+/* ---- scan brand tag / barcode ---- */
+function loadImg(src){return new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=src;});}
+async function readBarcode(dataURL){
+  if(!('BarcodeDetector'in window))return"";
+  let formats;try{formats=await BarcodeDetector.getSupportedFormats();}catch(_){}
+  const det=new BarcodeDetector(formats&&formats.length?{formats}:undefined);
+  const img=await loadImg(dataURL);
+  const r=await det.detect(img);
+  return r&&r.length?r[0].rawValue:"";
+}
+async function aiReadTag(dataURL,barcode){
+  const base64=dataURL.split(',')[1];
+  const txt=await callAI([
+    {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
+    {type:"text",text:'This is a photo of a clothing brand or care label'+(barcode?(' with barcode '+barcode):'')+'. Read what you can and reply with ONLY a JSON object, no markdown. Keys: brand (brand name if visible else ""), category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory, or ""), subtype (short, e.g. "merino crew knit", else ""), color (plain word or ""), formality (Casual, Smart, Formal or ""), material (e.g. "100% wool" or "").'}
+  ],400);
+  return parseJSON(txt);
+}
+function scanTag(){$('tagInput').value="";$('tagInput').click();}
+$('tagInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file||!state.pending)return;
+  let dataURL;try{dataURL=await resize(file,900);}catch(_){toast("Couldn't read that photo");return;}
+  syncFields();renderAddBody({tag:true});
+  let barcode="";try{barcode=await readBarcode(dataURL);}catch(_){}
+  if(barcode)state.pending.barcode=barcode;
+  if(hasAI()){
+    try{const info=await aiReadTag(dataURL,barcode);const p=state.pending;
+      if(info.brand)p.brand=info.brand;
+      if(info.category&&CATS.includes(info.category))p.category=info.category;
+      if(info.subtype&&!p.subtype)p.subtype=info.subtype;
+      if(info.color&&!p.color)p.color=info.color;
+      if(info.formality)p.formality=info.formality;
+      renderAddBody({});toast(info.brand?("Read: "+info.brand):(barcode?"Barcode read":"Tag read"));
+    }catch(_){renderAddBody({});toast(barcode?("Barcode "+barcode):"Couldn't read the tag");}
+  }else{renderAddBody({});toast(barcode?("Barcode "+barcode+" — add brand below"):"Add the brand below, or turn on AI");}
+});
+function syncFields(){const p=state.pending;if(!p)return;if($('f-brand'))p.brand=$('f-brand').value.trim();if($('f-sub'))p.subtype=$('f-sub').value.trim();if($('f-col'))p.color=$('f-col').value.trim();if($('f-form'))p.formality=$('f-form').value;if($('f-season'))p.season=$('f-season').value;}
+
+/* ---- touch-up editor ---- */
+const ed={canvas:null,ctx:null,orig:null,mode:'erase',size:34,drawing:false,last:null,stack:[]};
+function openEdit(){const p=state.pending;if(!p)return;
+  const img=new Image();
+  img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
+    const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
+    ed.canvas=c;ed.ctx=ctx;ed.stack=[];ed.last=null;ed.drawing=false;
+    const w=$('cwrap');w.innerHTML="";w.appendChild(c);
+    ed.orig=new Image();ed.orig.src=p.orig||p.photo;
+    setMode('erase');ed.size=+($('brush')?.value||34);bindEdit();
+    $('editSheet').classList.add('up');};
+  img.src=p.photo;}
+function closeEdit(){$('editSheet').classList.remove('up');}
+function setMode(m){ed.mode=m;$('tErase')?.classList.toggle('on',m==='erase');$('tRestore')?.classList.toggle('on',m==='restore');}
+function pushUndo(){try{ed.stack.push(ed.ctx.getImageData(0,0,ed.canvas.width,ed.canvas.height));if(ed.stack.length>12)ed.stack.shift();}catch(e){}}
+function undoEdit(){if(!ed.stack.length){toast("Nothing to undo");return;}ed.ctx.putImageData(ed.stack.pop(),0,0);}
+function ePt(e){const r=ed.canvas.getBoundingClientRect();const cx=e.clientX,cy=e.clientY;return{x:(cx-r.left)*(ed.canvas.width/r.width),y:(cy-r.top)*(ed.canvas.height/r.height),scale:ed.canvas.width/r.width};}
+function dab(x,y,scale){const ctx=ed.ctx,r=ed.size*scale;
+  if(ed.mode==='erase'){ctx.save();ctx.globalCompositeOperation='destination-out';ctx.beginPath();ctx.arc(x,y,r,0,6.2832);ctx.fill();ctx.restore();}
+  else{ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,6.2832);ctx.clip();if(ed.orig&&ed.orig.complete)ctx.drawImage(ed.orig,0,0,ed.canvas.width,ed.canvas.height);ctx.restore();}}
+function bindEdit(){const c=ed.canvas;
+  c.onpointerdown=e=>{e.preventDefault();pushUndo();ed.drawing=true;const p=ePt(e);ed.last=p;dab(p.x,p.y,p.scale);try{c.setPointerCapture(e.pointerId);}catch(_){}};
+  c.onpointermove=e=>{if(!ed.drawing)return;e.preventDefault();const p=ePt(e);const a=ed.last||p;const dx=p.x-a.x,dy=p.y-a.y;const dist=Math.hypot(dx,dy);const step=Math.max(3,ed.size*p.scale/3);
+    for(let i=step;i<dist;i+=step)dab(a.x+dx*i/dist,a.y+dy*i/dist,p.scale);dab(p.x,p.y,p.scale);ed.last=p;};
+  const up=()=>{ed.drawing=false;ed.last=null;};
+  c.onpointerup=up;c.onpointercancel=up;}
+function applyEdit(){if(!ed.canvas)return;state.pending.photo=ed.canvas.toDataURL('image/png');closeEdit();renderAddBody({});toast("Cut-out updated");}
+
+async function saveItem(){const p=state.pending;if(!p)return;
+  p.category=p.category||"Top";p.brand=($('f-brand')?.value||p.brand||"").trim();p.subtype=($('f-sub')?.value||"").trim();p.color=($('f-col')?.value||"").trim();p.formality=$('f-form')?.value||"Casual";p.season=$('f-season')?.value||"Any";if(!p.colorHex)p.colorHex="#b8b2a6";
+  await idbPut('items',p);
+  if(state.editingId){const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]=p;else state.items.push(p);}
+  else if(!state.items.some(x=>x.id===p.id))state.items.push(p);
+  if(state.batch){state.batchIdx++;if(state.batchIdx<state.batch.length){presentBatchItem();return;}return finishBatch();}
+  const wasEdit=!!state.editingId;closeAdd();renderWardrobe();
+  if(!wasEdit)go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));
+  toast(wasEdit?"Saved":"Added — "+state.items.length+" pieces");}
+function viewItem(id){const it=itemById(id);if(!it)return;state.batch=null;state.editingId=id;state.pending={...it};setAddTitle("Edit piece");openAdd();renderAddBody({});}
+async function deleteCurrent(){const p=state.pending;if(!p)return;if(!confirm("Remove this piece?"))return;await idbDel('items',p.id);state.items=state.items.filter(x=>x.id!==p.id);closeAdd();renderWardrobe();toast("Removed");}
+
+async function styleMe(){
+  if(state.items.length<3){toast("Add a few more pieces first ("+state.items.length+"/3)");return;}
+  const btn=$('styleBtn');btn.disabled=true;btn.innerHTML=`<span class="spinner"></span> &nbsp;Styling…`;$('looks').innerHTML="";
+  const w=state.weather;
+  const wnote=w?(" It is "+w.label.toLowerCase()+(w.temp!=null?(" ("+w.temp+"°C)"):"")+" today, so dress for the weather"+(w.bucket==='cold'?" with warm layers or outerwear":(w.bucket==='warm'?" and keep it light":""))+"."):"";
+  let looks;try{looks=hasAI()?await aiStyle(state.items,state.occasion,wnote):localStyle(state.items,state.occasion,w);}catch(_){looks=localStyle(state.items,state.occasion,w);}
+  if(!looks||!looks.length)looks=localStyle(state.items,state.occasion,w);
+  state.lastLooks=looks;renderLooks();
+  btn.disabled=false;btn.textContent="Style me again";}
+function renderLooks(){const looks=state.lastLooks;if(!looks){$('looks').innerHTML="";return;}
+  const html=looks.map(l=>lookCard(l,{})).filter(Boolean).join("");
+  $('looks').innerHTML=html||`<div class="note" style="text-align:center">Couldn't build a full look — try adding shoes plus a top and bottom.</div>`;}
+function setLayout(m){state.layout=m;$('vFlat')?.classList.toggle('on',m==='flat');$('vRow')?.classList.toggle('on',m==='row');renderLooks();renderSaved();}
+$('styleBtn').addEventListener('click',styleMe);
+
+/* ---- taste / wear / save ---- */
+let taste={likes:[],dislikes:[]};
+function loadTaste(){try{const v=localStorage.getItem('ensemble:taste');if(v)taste=JSON.parse(v);}catch(e){}if(!taste.likes)taste.likes=[];if(!taste.dislikes)taste.dislikes=[];}
+function saveTaste(){try{localStorage.setItem('ensemble:taste',JSON.stringify(taste));}catch(e){}}
+function sigOf(l){return (l.itemIds||[]).slice().sort().join(',')+'|'+(l.trend||'');}
+function descOf(l){const pcs=(l.itemIds||[]).map(id=>itemById(id)).filter(Boolean);return (l.trend?l.trend+': ':'')+pcs.map(p=>p.color||p.subtype||p.category).join(', ');}
+function ratingOf(sig){if(taste.likes.some(x=>x.sig===sig))return 'like';if(taste.dislikes.some(x=>x.sig===sig))return 'dislike';return null;}
+function tasteSummary(){const L=taste.likes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');const D=taste.dislikes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');let s='';if(L)s+=' The user tends to LIKE looks like: '+L+'.';if(D)s+=' The user tends to DISLIKE: '+D+'.';if(s)s+=' Lean toward their taste.';return s;}
+function findSaved(sig){return state.saved.find(s=>sigOf(s)===sig);}
+
+async function rateLook(btn,val){const l=getLook(btn);if(!l)return;const sig=sigOf(l),prev=ratingOf(sig);
+  taste.likes=taste.likes.filter(x=>x.sig!==sig);taste.dislikes=taste.dislikes.filter(x=>x.sig!==sig);
+  if(prev!==val){(val==='like'?taste.likes:taste.dislikes).unshift({sig,desc:descOf(l)});}
+  taste.likes=taste.likes.slice(0,40);taste.dislikes=taste.dislikes.slice(0,40);saveTaste();
+  renderLooks();renderSaved();
+  toast(prev===val?"Cleared":(val==='like'?"Noted — more like this":"Noted — less of this"));}
+
+async function wearLook(btn){const l=getLook(btn);if(!l)return;const today=new Date().toISOString().slice(0,10);let n=0;
+  for(const id of (l.itemIds||[])){const it=itemById(id);if(it){it.wornCount=(it.wornCount||0)+1;it.lastWorn=today;await idbPut('items',it);n++;}}
+  if(n)renderGrid();toast(n?"Logged — worn today":"No items to log");}
+
+async function toggleSave(btn){const l=getLook(btn);if(!l)return;const sig=sigOf(l);const ex=findSaved(sig);
+  if(ex){state.saved=state.saved.filter(s=>s!==ex);await idbDel('looks',ex.sid);toast("Removed from saved");}
+  else{l.sid='s_'+Date.now()+'_'+Math.floor(Math.random()*1e5);state.saved.unshift(l);await idbPut('looks',l);toast("Saved to your looks");}
+  renderLooks();renderSaved();}
+
+/* ---- settings ---- */
+function openSettings(){renderSettings();$('setSheet').classList.add('up');}
+function closeSettings(){$('setSheet').classList.remove('up');}
+function renderSettings(){const k=getKey();const cur=getTheme();
+  const themeCards=THEMES.map(t=>`<button class="themecard ${t.id===cur?'on':''}" onclick="pickTheme('${t.id}')">
+    <span class="tsw"><i style="background:${t.sw[0]}"></i><i style="background:${t.sw[1]}"></i><i style="background:${t.sw[2]}"></i></span>${t.name}</button>`).join("");
+  $('setBody').innerHTML=`
+    <div class="seclabel">Theme</div>
+    <div class="themegrid">${themeCards}</div>
+    <div class="seclabel" style="margin-top:22px">Automatic mode</div>
+    <div class="note" style="margin-bottom:16px;line-height:1.65">This app works on its own — you tag pieces by hand and it builds looks. Add your personal Anthropic API key to switch on <b>automatic photo &amp; tag reading</b> and <b>smarter AI styling</b>. The key is stored only on this phone and is never sent anywhere except Anthropic.</div>
+    <div class="field"><label>Anthropic API key (optional)</label><input id="keyInput" type="password" value="${k.replace(/"/g,'&quot;')}" placeholder="sk-ant-..."></div>
+    <button class="btn btn-primary" onclick="saveSettings()">${k?'Update':'Save'} key</button>
+    ${k?`<button class="mini" style="margin-top:10px" onclick="clearKey()">Remove key (back to manual)</button>`:``}
+    <div class="note" style="margin-top:18px">Get a key at <span class="link" onclick="openExt('https://console.anthropic.com/settings/keys')">console.anthropic.com</span>. Usage is a few cents; you control the spend.</div>
+    <div class="seclabel" style="margin-top:24px">Backup &amp; restore</div>
+    <div class="note" style="margin-bottom:14px;line-height:1.65">Your wardrobe lives only on this phone. Export a backup file now and then so you never lose it — and import it on a new phone or after clearing the browser.</div>
+    <button class="btn btn-ghost" style="margin-bottom:10px" onclick="exportData()">Export backup (${state.items.length} pieces)</button>
+    <button class="btn btn-ghost" onclick="importStart()">Import backup…</button>`;}
+function exportData(){
+  try{const data={app:'ensemble',v:2,date:new Date().toISOString(),theme:getTheme(),items:state.items,saved:state.saved,taste:taste};
+    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ensemble-backup-'+new Date().toISOString().slice(0,10)+'.json';
+    document.body.appendChild(a);a.click();a.remove();toast("Backup downloaded");}
+  catch(_){toast("Export failed");}
+}
+function importStart(){$('importInput').value="";$('importInput').click();}
+$('importInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  let data;try{data=JSON.parse(await file.text());}catch(_){toast("That file isn't a valid backup");return;}
+  if(!data||!Array.isArray(data.items)){toast("That file isn't a valid backup");return;}
+  if(!confirm("Import "+data.items.length+" pieces? This merges with what you have.")){return;}
+  try{
+    for(const it of data.items){if(it&&it.id){await idbPut('items',it);}}
+    if(Array.isArray(data.saved))for(const l of data.saved){if(l&&l.sid)await idbPut('looks',l);}
+    if(data.theme)applyTheme(data.theme);
+    if(data.taste&&data.taste.likes){taste=data.taste;if(!taste.likes)taste.likes=[];if(!taste.dislikes)taste.dislikes=[];saveTaste();}
+    state.items=await idbAll('items');state.saved=await idbAll('looks');
+    closeSettings();renderWardrobe();renderSaved();toast("Imported "+data.items.length+" pieces");
+  }catch(_){toast("Import failed");}
+});
+function saveSettings(){const v=($('keyInput')?.value||"").trim();setKey(v);refreshAIBadge();closeSettings();toast(v?"AI switched on":"Saved");}
+function clearKey(){setKey("");refreshAIBadge();renderSettings();toast("Back to manual mode");}
+function openExt(u){try{window.open(u,'_blank');}catch(e){}}
+
+let toastT;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
+
+/* ---- weather (today's outfit) ---- */
+const WMO={0:['Clear','☀️'],1:['Mainly clear','🌤️'],2:['Partly cloudy','⛅'],3:['Overcast','☁️'],45:['Fog','🌫️'],48:['Fog','🌫️'],51:['Light drizzle','🌦️'],53:['Drizzle','🌦️'],55:['Drizzle','🌦️'],56:['Freezing drizzle','🌦️'],57:['Freezing drizzle','🌦️'],61:['Light rain','🌧️'],63:['Rain','🌧️'],65:['Heavy rain','🌧️'],66:['Freezing rain','🌧️'],67:['Freezing rain','🌧️'],71:['Light snow','🌨️'],73:['Snow','🌨️'],75:['Heavy snow','❄️'],77:['Snow grains','🌨️'],80:['Showers','🌦️'],81:['Showers','🌧️'],82:['Heavy showers','⛈️'],85:['Snow showers','🌨️'],86:['Snow showers','❄️'],95:['Thunderstorm','⛈️'],96:['Thunderstorm','⛈️'],99:['Thunderstorm','⛈️']};
+function wmo(c){return WMO[c]||['Weather','🌡️'];}
+function bucketOf(t){return t<10?'cold':(t>21?'warm':'mild');}
+function renderWeather(){const el=$('weather');if(!el)return;const w=state.weather;
+  if(w){el.innerHTML=`<div class="weather"><span style="font-size:18px">${w.emoji}</span><span class="wt">${w.temp!=null?w.temp+'° · ':''}${w.label}${w.manual?' (manual)':''}</span><button class="wbtn" onclick="loadWeather()">Update</button></div>`;return;}
+  el.innerHTML=`<div class="weather"><span style="font-size:16px">🌡️</span><span>Dress for today's weather?</span><button class="wbtn" onclick="loadWeather()">Use my weather</button></div>
+    <div class="wmanual"><button class="chip" onclick="setManualWeather('cold')">Cold</button><button class="chip" onclick="setManualWeather('mild')">Mild</button><button class="chip" onclick="setManualWeather('warm')">Warm</button></div>`;}
+function setManualWeather(b){state.weather={bucket:b,label:b.charAt(0).toUpperCase()+b.slice(1),emoji:b==='cold'?'❄️':(b==='warm'?'☀️':'⛅'),temp:null,manual:true};renderWeather();toast("Styling for "+b+" weather");}
+async function loadWeather(){
+  if(!navigator.geolocation){toast("Location unavailable — pick a level");renderWeather();return;}
+  $('weather').innerHTML=`<div class="weather"><span class="spinner dark"></span><span>&nbsp;Getting your weather…</span></div>`;
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    try{const la=pos.coords.latitude.toFixed(3),lo=pos.coords.longitude.toFixed(3);
+      const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+la+'&longitude='+lo+'&current=temperature_2m,weather_code');
+      const d=await r.json();const t=Math.round(d.current.temperature_2m);const wm=wmo(d.current.weather_code);
+      state.weather={temp:t,label:wm[0],emoji:wm[1],bucket:bucketOf(t)};renderWeather();toast("Got today's weather");
+    }catch(_){renderWeather();toast("Couldn't fetch — pick a level");}
+  },()=>{renderWeather();toast("Location blocked — pick Cold/Mild/Warm");},{timeout:9000,maximumAge:600000});}
+
+/* ---- manual outfit builder ---- */
+function openBuild(){if(!state.items.length){toast("Add some pieces first");return;}state.buildIds=[];renderBuild();$('buildSheet').classList.add('up');}
+function closeBuild(){$('buildSheet').classList.remove('up');}
+function toggleBuild(id){const it=itemById(id);if(!it)return;const c=it.category;const multi=(c==='Top'||c==='Accessory');
+  const idx=state.buildIds.indexOf(id);
+  if(idx>=0){state.buildIds.splice(idx,1);}
+  else{if(!multi)state.buildIds=state.buildIds.filter(x=>{const o=itemById(x);return !o||o.category!==c;});state.buildIds.push(id);}
+  renderBuild();}
+function renderBuild(){
+  const pcs=state.buildIds.map(id=>itemById(id)).filter(Boolean);
+  $('buildPreview').innerHTML=pcs.length?`<div class="look" style="margin-bottom:14px">${flatLayHTML(pcs)}</div>`:`<div class="note" style="text-align:center;margin:24px 0">Pick pieces below to compose a look.<br>Tops &amp; accessories can be layered.</div>`;
+  const cats=CATS.filter(c=>state.items.some(i=>i.category===c));
+  $('buildPicker').innerHTML=cats.map(c=>{const items=state.items.filter(i=>i.category===c);
+    return `<div class="bpgroup"><div class="bplabel">${c}${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bprow">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+async function saveBuilt(){const ids=state.buildIds.slice();if(ids.length<2){toast("Pick at least two pieces");return;}
+  const l={name:"My outfit",trend:"Custom",itemIds:ids,why:"Hand-picked by you.",sid:'s_'+Date.now()+'_'+Math.floor(Math.random()*1e5)};
+  state.saved.unshift(l);await idbPut('looks',l);closeBuild();renderSaved();go('saved',document.querySelector('.nav button[data-v="saved"]'));toast("Saved your look");}
+
+/* ---- wardrobe stats ---- */
+function openStats(){renderStats();$('statsSheet').classList.add('up');}
+function closeStats(){$('statsSheet').classList.remove('up');}
+function topCounts(arr){const m={};arr.forEach(v=>{if(v&&v.trim){const k=v.trim();if(k)m[k]=(m[k]||0)+1;}});return Object.entries(m).sort((a,b)=>b[1]-a[1]);}
+function renderStats(){const it=state.items,n=it.length;
+  if(!n){$('statsBody').innerHTML=`<div class="empty"><div class="big" style="margin-top:30px">Nothing to analyse yet</div><div style="font-size:13px">Add some pieces first.</div></div>`;return;}
+  const catCounts=CATS.map(c=>[c,it.filter(i=>i.category===c).length]).filter(x=>x[1]>0);
+  const maxc=Math.max(1,...catCounts.map(x=>x[1]));
+  const catBars=catCounts.map(([c,v])=>`<div class="stat-row"><span class="sn">${c}</span><div class="stat-bar"><i style="width:${Math.round(v/maxc*100)}%"></i></div><span class="sv">${v}</span></div>`).join("");
+  const never=it.filter(i=>!(i.wornCount>0)).length;
+  const mostWorn=it.slice().sort((a,b)=>(b.wornCount||0)-(a.wornCount||0))[0];
+  const leastList=it.slice().sort((a,b)=>(a.wornCount||0)-(b.wornCount||0)).slice(0,3);
+  const colors=topCounts(it.map(i=>i.color)).slice(0,8);
+  const brands=topCounts(it.map(i=>i.brand)).slice(0,8);
+  const tops=it.filter(i=>i.category==='Top').length,bottoms=it.filter(i=>i.category==='Bottom').length,shoes=it.filter(i=>i.category==='Shoes').length;
+  const ins=[];
+  if(bottoms&&tops/Math.max(1,bottoms)>=2.5)ins.push("Lots of tops vs bottoms — a few more bottoms would unlock more outfits.");
+  else if(tops&&bottoms/Math.max(1,tops)>=2.5)ins.push("Plenty of bottoms but few tops — more tops would balance things.");
+  if(!shoes)ins.push("No shoes yet — add a pair so full looks can be built.");
+  if(never)ins.push(never+(never>1?" pieces have":" piece has")+" never been worn — the “Least worn” filter helps you rediscover them.");
+  if(!ins.length)ins.push("Nicely balanced — keep tapping “Wear” to sharpen these stats over time.");
+  $('statsBody').innerHTML=`
+    <div class="insight">${ins.join("<br><br>")}</div>
+    <div class="stat-card"><div class="sct">${n} pieces by category</div>${catBars}</div>
+    <div class="stat-card"><div class="sct">Wear</div>
+      <div class="note">${mostWorn&&mostWorn.wornCount?('Most worn: '+(mostWorn.brand?mostWorn.brand+' ':'')+(mostWorn.subtype||mostWorn.category)+' ('+mostWorn.wornCount+'×)'):'Log outfits with “Wear” to see your most-worn pieces.'}</div>
+      <div class="note" style="margin-top:8px">Least worn: ${leastList.map(i=>(i.subtype||i.category)+' ('+(i.wornCount||0)+'×)').join(', ')}</div></div>
+    ${colors.length?`<div class="stat-card"><div class="sct">Colours</div><div class="chiprow">${colors.map(([c,v])=>`<span class="tagpill">${c}<b>${v}</b></span>`).join("")}</div></div>`:''}
+    ${brands.length?`<div class="stat-card"><div class="sct">Brands</div><div class="chiprow">${brands.map(([c,v])=>`<span class="tagpill">${c}<b>${v}</b></span>`).join("")}</div></div>`:''}`;}
+
+
+/* ---- install manifest (Android) ---- */
+try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192'><rect width='192' height='192' rx='42' fill='#E9E5DC'/><text x='50%' y='62%' font-family='Georgia,serif' font-size='116' font-weight='600' fill='#1A1815' text-anchor='middle'>E<tspan fill='#6E2B36'>.</tspan></text></svg>`);
+  const man={name:"Ensemble",short_name:"Ensemble",start_url:".",display:"standalone",background_color:"#F6F2EA",theme_color:"#6E2B36",icons:[{src:icon,sizes:"192x192",type:"image/svg+xml"},{src:icon,sizes:"512x512",type:"image/svg+xml"}]};
+  const link=document.createElement('link');link.rel='manifest';link.href=URL.createObjectURL(new Blob([JSON.stringify(man)],{type:'application/manifest+json'}));document.head.appendChild(link);
+}catch(e){}
+
+/* ---- boot ---- */
+(async function(){applyTheme(getTheme());loadTaste();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
+</script>
+</body>
+</html>
