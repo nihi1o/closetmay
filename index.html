@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Ensemble</title>
+<title>Your Stylist</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Ensemble">
-<meta name="theme-color" content="#6E2B36">
+<meta name="apple-mobile-web-app-title" content="Your Stylist">
+<meta name="theme-color" content="#FFFFFF">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='180'%20height='180'%3E%3Crect%20width='180'%20height='180'%20rx='40'%20fill='%23E9E5DC'/%3E%3Ctext%20x='50%25'%20y='62%25'%20font-family='Georgia,serif'%20font-size='108'%20font-weight='600'%20fill='%231A1815'%20text-anchor='middle'%3EE%3Ctspan%20fill='%236E2B36'%3E.%3C/tspan%3E%3C/text%3E%3C/svg%3E">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
@@ -24,7 +24,8 @@
   body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow:hidden}
   #app{height:100vh;height:100dvh;display:flex;flex-direction:column;max-width:560px;margin:0 auto;position:relative}
   .top{padding:calc(14px + env(safe-area-inset-top)) 20px 12px;display:flex;align-items:flex-end;justify-content:space-between;flex:0 0 auto;border-bottom:1px solid var(--hair)}
-  .brand{font-family:var(--font-head);font-weight:600;font-size:24px;line-height:.9}
+  .brand{display:flex;align-items:center;gap:9px;font-family:var(--font-head);font-weight:600;font-size:24px;line-height:.9}
+  .brand .blogo{width:30px;height:auto;flex:0 0 auto}
   .brand .dot{color:var(--wine)}
   .brand small{display:block;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--muted);text-transform:uppercase;margin-top:4px;font-weight:400}
   .gear{width:38px;height:38px;border:1px solid var(--hair);background:var(--card);border-radius:50%;display:grid;place-items:center;cursor:pointer}
@@ -154,10 +155,10 @@
   .tsw i{width:13px;height:24px;display:block}
 </style>
 </head>
-<body data-theme="espresso">
+<body data-theme="mono">
 <div id="app">
   <div class="top">
-    <div class="brand">Ensemble<span class="dot">.</span><small>your stylist</small></div>
+    <div class="brand"><svg class="blogo" viewBox="0 0 40 28" fill="none" stroke="var(--ink)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13 L6 22 Q4 23 6 23 L34 23 Q36 23 34 22 L20 13 Z"/><path d="M20 13 L20 7 Q20 4 23.5 4 Q27 4 27 7.5"/><circle cx="27" cy="7.5" r="2" fill="var(--wine)" stroke="none"/></svg><span class="bwrap">Your Stylist<span class="dot">.</span><small>your wardrobe, styled</small></span></div>
     <div class="gear" id="gear" onclick="openSettings()" aria-label="Settings">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/></svg>
     </div>
@@ -232,9 +233,10 @@
         <button class="etool on" id="tErase" onclick="setMode('erase')">Erase</button>
         <button class="etool" id="tRestore" onclick="setMode('restore')">Restore</button>
         <button class="etool" onclick="undoEdit()">Undo</button>
+        <button class="etool" id="tZoom" onclick="toggleZoom()">Zoom ×2</button>
       </div>
-      <div class="brushrow"><span class="blab">Brush</span><input type="range" id="brush" min="8" max="80" value="34" oninput="ed.size=+this.value"></div>
-      <div class="cwrap" id="cwrap"></div>
+      <div class="brushrow"><span class="blab">Brush</span><input type="range" id="brush" min="6" max="90" value="34" oninput="ed.size=+this.value"></div>
+      <div class="cwrap" id="cwrap" style="overflow:auto"></div>
       <div class="edit-foot">
         <button class="mini" onclick="closeEdit()">Cancel</button>
         <button class="btn btn-primary" style="flex:2" onclick="applyEdit()">Done</button>
@@ -271,7 +273,7 @@ const THEMES=[
   {id:'slate',name:'Slate',sw:['#E6EAEC','#2E7D8A','#19242E']},
   {id:'indigo',name:'Indigo',sw:['#161427','#A99CF5','#ECEAF6']}
 ];
-const DEF_THEME='espresso';
+const DEF_THEME='mono';
 function getTheme(){try{const t=localStorage.getItem('ensemble:theme');return THEMES.some(x=>x.id===t)?t:DEF_THEME;}catch(e){return DEF_THEME;}}
 function applyTheme(t){document.body.setAttribute('data-theme',t);try{localStorage.setItem('ensemble:theme',t);}catch(e){}}
 function pickTheme(t){applyTheme(t);renderSettings();}
@@ -285,7 +287,7 @@ async function idbPut(s,v){try{const db=await idb();return await new Promise(res
 async function idbDel(s,id){try{const db=await idb();return await new Promise(res=>{const t=db.transaction(s,'readwrite');t.objectStore(s).delete(id);t.oncomplete=res;t.onerror=res;});}catch(e){}}
 
 /* ---- image resize ---- */
-function resize(file,max=640){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
+function resize(file,max=1024){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
   img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));const w=Math.round(img.width*r),h=Math.round(img.height*r);
     const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',0.82));};
   img.onerror=()=>{URL.revokeObjectURL(url);rej();};img.src=url;});}
@@ -331,7 +333,8 @@ async function aiStyle(items,occasion,wnote){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' It is '+month+'. Channel these CURRENT real-world fashion trends where they suit the pieces and occasion: '+state.trends.text+'.'):(' It is '+month+', so keep trends season-appropriate.');
-  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear. Make at least one of the three outfits a layered look when the wardrobe allows.'+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  const rules=' Avoid common styling mistakes: never combine two of the same base layer in one outfit (e.g. two T-shirts); keep formality coherent across every piece (do not pair smart items like a belt or blazer with athletic pieces like sweatpants or joggers); never put sportswear or athleisure — sweatpants, joggers, gym wear, football or sports jerseys — into dressy occasions such as Dinner or Evening. Every outfit must be coherent in formality and appropriate to the occasion.';
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
   return parseJSON(txt);}
 
 /* ---- local fallback styler ---- */
@@ -342,15 +345,20 @@ function localStyle(items,occasion,weather){
   if(weather&&weather.bucket){const b=weather.bucket;
     const f=items.filter(i=>{const s=i.season||'Any';if(s==='Any')return true;if(b==='cold')return s!=='Warm';if(b==='warm')return s!=='Cold';return true;});
     if(f.length>=3)pool=f;}
+  const dressy=(occasion==='Dinner'||occasion==='Evening');
+  if(dressy){const f=pool.filter(i=>i.formality!=='Casual');
+    const ok=f.some(i=>i.category==='Top')&&(f.some(i=>i.category==='Bottom')||f.some(i=>i.category==='Dress'));
+    if(ok)pool=f;}
   const cold=weather&&weather.bucket==='cold';
   const by=c=>pool.filter(i=>i.category===c);
   const tops=by('Top'),bottoms=by('Bottom'),dresses=by('Dress'),shoes=by('Shoes'),outer=by('Outerwear'),acc=by('Accessory');
   const bases=[];dresses.forEach(d=>bases.push([d]));tops.forEach(t=>bottoms.forEach(b=>bases.push([t,b])));shuffle(bases);
   const looks=[];for(const base of bases){if(looks.length>=3)break;const ids=base.map(x=>x.id);let layered=false;
-    if(base.length===2){const others=tops.filter(t=>t.id!==base[0].id);if(others.length&&Math.random()<(cold?0.7:0.32)){ids.push(pick(others).id);layered=true;}}
+    if(base.length===2){const others=tops.filter(t=>t.id!==base[0].id&&(t.subtype||'').toLowerCase()!==(base[0].subtype||'').toLowerCase());if(others.length&&Math.random()<(cold?0.7:0.32)){ids.push(pick(others).id);layered=true;}}
     if(shoes.length)ids.push(pick(shoes).id);
     if(outer.length&&Math.random()<(cold?0.92:0.4)){ids.push(pick(outer).id);layered=true;}
-    if(acc.length&&Math.random()<.4)ids.push(pick(acc).id);
+    if(acc.length&&!dressy&&Math.random()<.4)ids.push(pick(acc).id);
+    else if(acc.length&&dressy&&Math.random()<.5)ids.push(pick(acc).id);
     looks.push({name:layered?"Layered "+occasion.toLowerCase():occasion+" pairing",trend:layered?"Layered":(cold?"Layered up":"From your closet"),itemIds:ids,why:layered?"Pieces layered together from your closet.":"A clean combination built from pieces you own."});}
   return looks;}
 
@@ -547,13 +555,14 @@ $('tagInput').addEventListener('change',async e=>{
 function syncFields(){const p=state.pending;if(!p)return;if($('f-brand'))p.brand=$('f-brand').value.trim();if($('f-sub'))p.subtype=$('f-sub').value.trim();if($('f-col'))p.color=$('f-col').value.trim();if($('f-form'))p.formality=$('f-form').value;if($('f-season'))p.season=$('f-season').value;}
 
 /* ---- touch-up editor ---- */
-const ed={canvas:null,ctx:null,orig:null,mode:'erase',size:34,drawing:false,last:null,stack:[]};
+const ed={canvas:null,ctx:null,orig:null,mode:'erase',size:34,drawing:false,last:null,stack:[],zoom:false};
+function toggleZoom(){if(!ed.canvas)return;ed.zoom=!ed.zoom;ed.canvas.style.width=ed.zoom?'200%':'100%';ed.canvas.style.maxWidth=ed.zoom?'none':'100%';$('tZoom')?.classList.toggle('on',ed.zoom);}
 function openEdit(){const p=state.pending;if(!p)return;
   const img=new Image();
   img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
     const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
     ed.canvas=c;ed.ctx=ctx;ed.stack=[];ed.last=null;ed.drawing=false;
-    const w=$('cwrap');w.innerHTML="";w.appendChild(c);
+    const w=$('cwrap');w.innerHTML="";w.appendChild(c);c.style.width='100%';c.style.maxWidth='100%';c.style.touchAction='none';ed.zoom=false;$('tZoom')?.classList.remove('on');
     ed.orig=new Image();ed.orig.src=p.orig||p.photo;
     setMode('erase');ed.size=+($('brush')?.value||34);bindEdit();
     $('editSheet').classList.add('up');};
@@ -609,6 +618,16 @@ $('styleBtn').addEventListener('click',styleMe);
 let taste={likes:[],dislikes:[]};
 function loadTaste(){try{const v=localStorage.getItem('ensemble:taste');if(v)taste=JSON.parse(v);}catch(e){}if(!taste.likes)taste.likes=[];if(!taste.dislikes)taste.dislikes=[];}
 function saveTaste(){try{localStorage.setItem('ensemble:taste',JSON.stringify(taste));}catch(e){}}
+const AGES=["Teens","20s","30s","40s","50s","60+"];
+const PSTYLES=["Streetwear","Casual","Smart casual","Elegant","Work","Minimal","Bold","Sporty","Boho"];
+const PRESENT=["Feminine","Masculine","Androgynous"];
+let profile={age:"",styles:[],present:""};
+function loadProfile(){try{const v=localStorage.getItem('ensemble:profile');if(v)profile=JSON.parse(v);}catch(e){}if(!profile.styles)profile.styles=[];if(profile.present===undefined)profile.present="";}
+function saveProfile(){try{localStorage.setItem('ensemble:profile',JSON.stringify(profile));}catch(e){}}
+function profileSummary(){let s='';if(profile.present)s+=" Style the looks in a "+profile.present.toLowerCase()+" direction.";if(profile.age)s+=" The wearer's age group is "+profile.age+".";if(profile.styles&&profile.styles.length)s+=" Their personal style leans: "+profile.styles.join(', ')+".";if(s)s+=" Tailor the looks to suit them.";return s;}
+function setAge(a){profile.age=(profile.age===a?"":a);saveProfile();renderSettings();}
+function setPresent(p){profile.present=(profile.present===p?"":p);saveProfile();renderSettings();}
+function toggleStyle(s){const i=profile.styles.indexOf(s);if(i>=0)profile.styles.splice(i,1);else profile.styles.push(s);saveProfile();renderSettings();}
 function sigOf(l){return (l.itemIds||[]).slice().sort().join(',')+'|'+(l.trend||'');}
 function descOf(l){const pcs=(l.itemIds||[]).map(id=>itemById(id)).filter(Boolean);return (l.trend?l.trend+': ':'')+pcs.map(p=>p.color||p.subtype||p.category).join(', ');}
 function ratingOf(sig){if(taste.likes.some(x=>x.sig===sig))return 'like';if(taste.dislikes.some(x=>x.sig===sig))return 'dislike';return null;}
@@ -646,12 +665,17 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <button class="btn btn-primary" onclick="saveSettings()">${k?'Update':'Save'} key</button>
     ${k?`<button class="mini" style="margin-top:10px" onclick="clearKey()">Remove key (back to manual)</button>`:``}
     <div class="note" style="margin-top:18px">Get a key at <span class="link" onclick="openExt('https://console.anthropic.com/settings/keys')">console.anthropic.com</span>. Usage is a few cents; you control the spend.</div>
+    <div class="seclabel" style="margin-top:24px">Your profile</div>
+    <div class="note" style="margin-bottom:12px;line-height:1.6">Optional — helps the stylist tailor looks to you (used with AI styling).</div>
+    <div class="field"><label>Styling</label><div class="chips">${PRESENT.map(p=>`<button class="chip ${profile.present===p?'on':''}" onclick="setPresent('${p}')">${p}</button>`).join("")}</div></div>
+    <div class="field"><label>Age group</label><div class="chips">${AGES.map(a=>`<button class="chip ${profile.age===a?'on':''}" onclick="setAge('${a}')">${a}</button>`).join("")}</div></div>
+    <div class="field"><label>Your style</label><div class="chips">${PSTYLES.map(s=>`<button class="chip ${profile.styles.includes(s)?'on':''}" onclick="toggleStyle('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("")}</div></div>
     <div class="seclabel" style="margin-top:24px">Backup &amp; restore</div>
     <div class="note" style="margin-bottom:14px;line-height:1.65">Your wardrobe lives only on this phone. Export a backup file now and then so you never lose it — and import it on a new phone or after clearing the browser.</div>
     <button class="btn btn-ghost" style="margin-bottom:10px" onclick="exportData()">Export backup (${state.items.length} pieces)</button>
     <button class="btn btn-ghost" onclick="importStart()">Import backup…</button>`;}
 function exportData(){
-  try{const data={app:'ensemble',v:2,date:new Date().toISOString(),theme:getTheme(),items:state.items,saved:state.saved,taste:taste};
+  try{const data={app:'ensemble',v:2,date:new Date().toISOString(),theme:getTheme(),items:state.items,saved:state.saved,taste:taste,profile:profile};
     const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ensemble-backup-'+new Date().toISOString().slice(0,10)+'.json';
     document.body.appendChild(a);a.click();a.remove();toast("Backup downloaded");}
@@ -668,6 +692,7 @@ $('importInput').addEventListener('change',async e=>{
     if(Array.isArray(data.saved))for(const l of data.saved){if(l&&l.sid)await idbPut('looks',l);}
     if(data.theme)applyTheme(data.theme);
     if(data.taste&&data.taste.likes){taste=data.taste;if(!taste.likes)taste.likes=[];if(!taste.dislikes)taste.dislikes=[];saveTaste();}
+    if(data.profile){profile=data.profile;if(!profile.styles)profile.styles=[];saveProfile();}
     state.items=await idbAll('items');state.saved=await idbAll('looks');
     closeSettings();renderWardrobe();renderSaved();toast("Imported "+data.items.length+" pieces");
   }catch(_){toast("Import failed");}
@@ -763,13 +788,14 @@ function renderStats(){const it=state.items,n=it.length;
 
 
 /* ---- install manifest (Android) ---- */
-try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192'><rect width='192' height='192' rx='42' fill='#E9E5DC'/><text x='50%' y='62%' font-family='Georgia,serif' font-size='116' font-weight='600' fill='#1A1815' text-anchor='middle'>E<tspan fill='#6E2B36'>.</tspan></text></svg>`);
-  const man={name:"Ensemble",short_name:"Ensemble",start_url:".",display:"standalone",background_color:"#F6F2EA",theme_color:"#6E2B36",icons:[{src:icon,sizes:"192x192",type:"image/svg+xml"},{src:icon,sizes:"512x512",type:"image/svg+xml"}]};
+try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'><rect width='192' height='192' rx='42' fill='#FFFFFF'/><g fill='none' stroke='#0B0B0B' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'><path d='M96 92 L42 120 Q38 122 43 122 L149 122 Q154 122 150 120 L96 92 Z'/><path d='M96 92 L96 70 Q96 56 110 56 Q123 56 123 68'/></g><circle cx='123' cy='68' r='6' fill='#E5251B'/></svg>`);
+  const fav=document.createElement('link');fav.rel='icon';fav.href=icon;document.head.appendChild(fav);
+  const man={name:"Your Stylist",short_name:"Stylist",start_url:".",display:"standalone",background_color:"#FFFFFF",theme_color:"#0B0B0B",icons:[{src:icon,sizes:"192x192",type:"image/svg+xml"},{src:icon,sizes:"512x512",type:"image/svg+xml"}]};
   const link=document.createElement('link');link.rel='manifest';link.href=URL.createObjectURL(new Blob([JSON.stringify(man)],{type:'application/manifest+json'}));document.head.appendChild(link);
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){applyTheme(getTheme());loadTaste();loadTrends();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
+(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}applyTheme(getTheme());loadTaste();loadTrends();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
 </script>
 </body>
 </html>
