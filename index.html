@@ -110,6 +110,11 @@
   .weather{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:11px 13px;margin-bottom:16px;font-size:13px}
   .weather .wt{font-weight:600}
   .weather .wbtn{margin-left:auto;border:1px solid var(--hair);background:transparent;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .trends{background:var(--card);border:1px solid var(--hair);border-radius:14px;padding:12px 13px;margin-bottom:16px}
+  .trends .th{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .trends .tlab{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--wine)}
+  .trends .wbtn{margin-left:auto;border:1px solid var(--hair);background:transparent;border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .trends .ttext{font-size:12.5px;line-height:1.6;color:var(--ink)}
   .wmanual{display:flex;gap:7px;margin-top:8px}
   .wmanual .chip{font-size:12px;padding:7px 12px}
   .bpgroup{margin-bottom:14px}
@@ -174,6 +179,7 @@
       <div class="h">Style me</div>
       <div class="sub">Pick an occasion and get looks assembled from what you own.</div>
       <div id="weather"></div>
+      <div id="trends"></div>
       <div class="chips" id="occ"></div>
       <div class="viewtoggle"><button class="vchip on" id="vFlat" onclick="setLayout('flat')">Flat-lay</button><button class="vchip" id="vRow" onclick="setLayout('row')">Pieces</button></div>
       <button class="btn btn-primary" id="styleBtn" style="margin-top:6px">Style me</button>
@@ -247,7 +253,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[]};
+const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
 
@@ -306,22 +312,26 @@ async function cutout(dataURL){
 }
 
 /* ---- AI (uses your own key) ---- */
-async function callAI(content,maxTokens){
+async function callAI(content,maxTokens,tools){
   const key=getKey();if(!key)throw new Error("no key");
+  const body={model:MODEL,max_tokens:maxTokens,messages:[{role:"user",content}]};
+  if(tools)body.tools=tools;
   const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
     headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body:JSON.stringify({model:MODEL,max_tokens:maxTokens,messages:[{role:"user",content}]})});
+    body:JSON.stringify(body)});
   if(!r.ok)throw new Error("AI "+r.status);
   const d=await r.json();return(d.content||[]).filter(b=>b.type==='text').map(b=>b.text).join("\n");
 }
 function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
 async function aiTag(dataURL){const base64=dataURL.split(',')[1];
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold).'}],400);
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
   return parseJSON(txt);}
 async function aiStyle(items,occasion,wnote){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
-  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear. Make at least one of the three outfits a layered look when the wardrobe allows.'+(wnote||'')+tasteSummary()+' Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
+  const tb=(state.trends&&state.trends.text)?(' It is '+month+'. Channel these CURRENT real-world fashion trends where they suit the pieces and occasion: '+state.trends.text+'.'):(' It is '+month+', so keep trends season-appropriate.');
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear. Make at least one of the three outfits a layered look when the wardrobe allows.'+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
   return parseJSON(txt);}
 
 /* ---- local fallback styler ---- */
@@ -424,7 +434,7 @@ function renderSaved(){const el=$('savedList');if(!state.saved.length){el.innerH
 
 /* ---- actions ---- */
 function go(v,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$('v-'+v).classList.add('on');
-  document.querySelectorAll('.nav button[data-v]').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');$('scroll').scrollTop=0;if(v==='saved')renderSaved();if(v==='style')renderWeather();}
+  document.querySelectorAll('.nav button[data-v]').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');$('scroll').scrollTop=0;if(v==='saved')renderSaved();if(v==='style'){renderWeather();renderTrends();}}
 function setFilter(c){state.filter=c;document.querySelectorAll('#wfilter .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));renderGrid();}
 function setOcc(o){state.occasion=o;renderOcc();}
 
@@ -433,9 +443,13 @@ function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
 function renderChooser(){$('addBody').innerHTML=`
   <div class="note" style="text-align:center;margin:8px 0 18px">How would you like to add?</div>
-  <button class="btn btn-primary" style="margin-bottom:12px" onclick="startSingle()">Take one photo</button>
+  <button class="btn btn-primary" style="margin-bottom:10px" onclick="startGuided()">One piece: garment + tag</button>
+  <button class="btn btn-primary" style="margin-bottom:10px" onclick="startPileMode()">Whole pile: garment + tag, looped</button>
+  <button class="btn btn-ghost" style="margin-bottom:10px" onclick="startSingle()">Garment photo only</button>
   <button class="btn btn-ghost" onclick="startMulti()">Pick several from gallery</button>
-  <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">“Several” lets you select many photos at once, then tag them one by one.</div>`;}
+  <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">With AI on, the <b>garment + tag</b> modes snap the piece (colour &amp; type) then its tag (brand) automatically. <b>Whole pile</b> repeats that for piece after piece until you tap Done.</div>`;}
+function startGuided(){state.guided=true;startSingle();}
+function startPileMode(){state.pile=true;state.pileCount=0;setAddTitle("Pile · 0 added");startGuided();}
 function startSingle(){$('fileInput').value="";$('fileInput').click();}
 function startMulti(){$('multiInput').value="";$('multiInput').click();}
 
@@ -450,6 +464,7 @@ $('fileInput').addEventListener('change',async e=>{
   let dataURL;try{dataURL=await resize(file);}catch(_){toast("Couldn't read that photo");return;}
   state.pending={id:newId(),photo:dataURL,orig:dataURL,category:"Top"};
   setAddTitle("Add a piece");openAdd();renderAddBody({cutout:true});await processPhoto();
+  if(state.guided){state.guided=false;if(hasAI()){toast("Now snap the brand tag");setTimeout(scanTag,400);}}
 });
 $('multiInput').addEventListener('change',async e=>{
   const files=Array.from(e.target.files||[]);if(!files.length)return;
@@ -464,13 +479,13 @@ function skipBatch(){if(!state.batch)return;state.batchIdx++;if(state.batchIdx<s
 function finishBatch(){const n=state.batch?state.batch.length:0;state.batch=null;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast("Done adding pieces");}
 
 function openAdd(){$('addSheet').classList.add('up');}
-function closeAdd(){$('addSheet').classList.remove('up');state.pending=null;state.editingId=null;state.batch=null;}
+function closeAdd(){$('addSheet').classList.remove('up');state.pending=null;state.editingId=null;state.batch=null;state.guided=false;state.pile=false;state.pileCount=0;}
 function renderAddBody(o){const p=state.pending;if(!p)return;
   if(o.cutout){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Removing the background…<div style="font-size:11px;margin-top:6px">First time is a little longer (one-time setup)</div></div>`;return;}
   if(o.loading){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading your piece…</div>`;return;}
   if(o.tag){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading the tag…</div>`;return;}
-  const cat=p.category||"Top";const editing=!!state.editingId;const inBatch=!!state.batch;
-  const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(editing?"Save changes":"Add to wardrobe");
+  const cat=p.category||"Top";const editing=!!state.editingId;const inBatch=!!state.batch;const inPile=!!state.pile;
+  const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(inPile?"Save & next piece":(editing?"Save changes":"Add to wardrobe"));
   $('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div>
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <button class="mini" style="flex:1" onclick="syncFields();rotatePending()">↻ Rotate</button>
@@ -489,6 +504,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
     </div>
     <button class="btn btn-primary" onclick="saveItem()">${primary}</button>
     ${inBatch?`<button class="mini" style="margin-top:10px" onclick="skipBatch()">Skip this one</button>`:``}
+    ${inPile?`<button class="mini" style="margin-top:10px" onclick="finishPile()">Done — finish pile (${state.pileCount})</button>`:``}
     ${editing?`<button class="mini" style="margin-top:10px;color:var(--wine);border-color:var(--wine)" onclick="deleteCurrent()">Delete this piece</button>`:``}`;}
 function setPendingCat(c){state.pending.category=c;document.querySelectorAll('#catRow .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));}
 
@@ -564,9 +580,13 @@ async function saveItem(){const p=state.pending;if(!p)return;
   if(state.editingId){const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]=p;else state.items.push(p);}
   else if(!state.items.some(x=>x.id===p.id))state.items.push(p);
   if(state.batch){state.batchIdx++;if(state.batchIdx<state.batch.length){presentBatchItem();return;}return finishBatch();}
+  if(state.pile){state.pileCount++;toast("Added — "+state.pileCount+" this pile");setAddTitle("Pile · "+state.pileCount+" added");state.pending=null;
+    $('addBody').innerHTML=`<div class="loadwrap">Opening the camera for the next piece…<div style="margin-top:16px"><button class="btn btn-ghost" onclick="finishPile()">Done — finish pile (${state.pileCount})</button></div></div>`;
+    startGuided();return;}
   const wasEdit=!!state.editingId;closeAdd();renderWardrobe();
   if(!wasEdit)go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));
   toast(wasEdit?"Saved":"Added — "+state.items.length+" pieces");}
+function finishPile(){const n=state.pileCount||0;state.pile=false;state.pileCount=0;state.guided=false;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast(n?("Added "+n+(n>1?" pieces":" piece")):"Done");}
 function viewItem(id){const it=itemById(id);if(!it)return;state.batch=null;state.editingId=id;state.pending={...it};setAddTitle("Edit piece");openAdd();renderAddBody({});}
 async function deleteCurrent(){const p=state.pending;if(!p)return;if(!confirm("Remove this piece?"))return;await idbDel('items',p.id);state.items=state.items.filter(x=>x.id!==p.id);closeAdd();renderWardrobe();toast("Removed");}
 
@@ -678,6 +698,21 @@ async function loadWeather(){
     }catch(_){renderWeather();toast("Couldn't fetch — pick a level");}
   },()=>{renderWeather();toast("Location blocked — pick Cold/Mild/Warm");},{timeout:9000,maximumAge:600000});}
 
+/* ---- live trends (web search via your key) ---- */
+function loadTrends(){try{const v=localStorage.getItem('ensemble:trends');if(v)state.trends=JSON.parse(v);}catch(e){}}
+function saveTrends(){try{localStorage.setItem('ensemble:trends',JSON.stringify(state.trends));}catch(e){}}
+function renderTrends(){const el=$('trends');if(!el)return;const t=state.trends;
+  if(t){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends now · ${t.date}</span><button class="wbtn" onclick="refreshTrends()">Refresh</button></div><div class="ttext">${(t.text||'').replace(/</g,'&lt;')}</div></div>`;return;}
+  if(!hasAI()){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span></div><div class="ttext" style="color:var(--muted)">Turn on AI in Settings (the gear) to pull the season's trends from the web.</div></div>`;return;}
+  el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span><button class="wbtn" onclick="refreshTrends()">Fetch current trends</button></div><div class="ttext" style="color:var(--muted)">Pull this season's real trends from the web — then “Style me” follows them.</div></div>`;}
+async function fetchTrends(){const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
+  return await callAI('Search the web for what is trending in fashion right now ('+month+'). Then list 5-7 specific current trends a personal stylist should channel — colours, silhouettes, fabrics, named aesthetics and styling moves. Reply with ONLY the trends as short phrases separated by semicolons. No preamble, no markdown, no citations.',800,[{type:"web_search_20250305",name:"web_search",max_uses:4}]);}
+async function refreshTrends(){
+  if(!hasAI()){toast("Turn on AI first (Settings)");return;}
+  const el=$('trends');el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span></div><div class="ttext"><span class="spinner dark"></span> &nbsp;Searching the web for current trends…</div></div>`;
+  try{const text=await fetchTrends();if(!text||!text.trim())throw 0;state.trends={date:new Date().toLocaleDateString(),text:text.trim()};saveTrends();renderTrends();toast("Trends updated");}
+  catch(_){renderTrends();toast("Couldn't fetch trends — try again");}}
+
 /* ---- manual outfit builder ---- */
 function openBuild(){if(!state.items.length){toast("Add some pieces first");return;}state.buildIds=[];renderBuild();$('buildSheet').classList.add('up');}
 function closeBuild(){$('buildSheet').classList.remove('up');}
@@ -734,7 +769,7 @@ try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){applyTheme(getTheme());loadTaste();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
+(async function(){applyTheme(getTheme());loadTaste();loadTrends();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
 </script>
 </body>
 </html>
