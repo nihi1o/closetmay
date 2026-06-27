@@ -556,13 +556,16 @@ function syncFields(){const p=state.pending;if(!p)return;if($('f-brand'))p.brand
 
 /* ---- touch-up editor ---- */
 const ed={canvas:null,ctx:null,orig:null,mode:'erase',size:34,drawing:false,last:null,stack:[],zoom:false};
-function toggleZoom(){if(!ed.canvas)return;ed.zoom=!ed.zoom;ed.canvas.style.width=ed.zoom?'200%':'100%';ed.canvas.style.maxWidth=ed.zoom?'none':'100%';$('tZoom')?.classList.toggle('on',ed.zoom);}
+function toggleZoom(){if(!ed.canvas)return;const c=ed.canvas;ed.zoom=!ed.zoom;
+  if(ed.zoom){const base=(c.getBoundingClientRect().width)||$('cwrap').clientWidth||300;const w=base*2;c.style.width=w+'px';c.style.height=(w*c.height/c.width)+'px';c.style.maxWidth='none';}
+  else{c.style.width='100%';c.style.height='auto';c.style.maxWidth='100%';}
+  $('tZoom')?.classList.toggle('on',ed.zoom);}
 function openEdit(){const p=state.pending;if(!p)return;
   const img=new Image();
   img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
     const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
     ed.canvas=c;ed.ctx=ctx;ed.stack=[];ed.last=null;ed.drawing=false;
-    const w=$('cwrap');w.innerHTML="";w.appendChild(c);c.style.width='100%';c.style.maxWidth='100%';c.style.touchAction='none';ed.zoom=false;$('tZoom')?.classList.remove('on');
+    const w=$('cwrap');w.innerHTML="";w.appendChild(c);c.style.width='100%';c.style.height='auto';c.style.maxWidth='100%';c.style.touchAction='none';ed.zoom=false;$('tZoom')?.classList.remove('on');
     ed.orig=new Image();ed.orig.src=p.orig||p.photo;
     setMode('erase');ed.size=+($('brush')?.value||34);bindEdit();
     $('editSheet').classList.add('up');};
