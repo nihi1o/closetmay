@@ -726,20 +726,17 @@ async function loadWeather(){
     }catch(_){renderWeather();toast("Couldn't fetch — pick a level");}
   },()=>{renderWeather();toast("Location blocked — pick Cold/Mild/Warm");},{timeout:9000,maximumAge:600000});}
 
-/* ---- live trends (web search via your key) ---- */
+/* ---- trends: shared feed (trends.json, updated centrally from the owner's PC) ---- */
 function loadTrends(){try{const v=localStorage.getItem('ensemble:trends');if(v)state.trends=JSON.parse(v);}catch(e){}}
 function saveTrends(){try{localStorage.setItem('ensemble:trends',JSON.stringify(state.trends));}catch(e){}}
+async function fetchTrendFeed(manual){
+  try{const r=await fetch('trends.json?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();
+    if(d&&d.text){state.trends={date:d.date||new Date().toLocaleDateString(),text:String(d.text).trim()};saveTrends();renderTrends();if(manual)toast("Trends updated");return;}
+    throw 0;
+  }catch(_){if(manual)toast("No trend feed found yet");renderTrends();}}
 function renderTrends(){const el=$('trends');if(!el)return;const t=state.trends;
-  if(t){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends now · ${t.date}</span><button class="wbtn" onclick="refreshTrends()">Refresh</button></div><div class="ttext">${(t.text||'').replace(/</g,'&lt;')}</div></div>`;return;}
-  if(!hasAI()){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span></div><div class="ttext" style="color:var(--muted)">Turn on AI in Settings (the gear) to pull the season's trends from the web.</div></div>`;return;}
-  el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span><button class="wbtn" onclick="refreshTrends()">Fetch current trends</button></div><div class="ttext" style="color:var(--muted)">Pull this season's real trends from the web — then “Style me” follows them.</div></div>`;}
-async function fetchTrends(){const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
-  return await callAI('Search the web for what is trending in fashion right now ('+month+'). Then list 5-7 specific current trends a personal stylist should channel — colours, silhouettes, fabrics, named aesthetics and styling moves. Reply with ONLY the trends as short phrases separated by semicolons. No preamble, no markdown, no citations.',800,[{type:"web_search_20250305",name:"web_search",max_uses:4}]);}
-async function refreshTrends(){
-  if(!hasAI()){toast("Turn on AI first (Settings)");return;}
-  const el=$('trends');el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span></div><div class="ttext"><span class="spinner dark"></span> &nbsp;Searching the web for current trends…</div></div>`;
-  try{const text=await fetchTrends();if(!text||!text.trim())throw 0;state.trends={date:new Date().toLocaleDateString(),text:text.trim()};saveTrends();renderTrends();toast("Trends updated");}
-  catch(_){renderTrends();toast("Couldn't fetch trends — try again");}}
+  if(t){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends · ${t.date}</span><button class="wbtn" onclick="fetchTrendFeed(true)">Refresh</button></div><div class="ttext">${(t.text||'').replace(/</g,'&lt;')}</div></div>`;return;}
+  el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span><button class="wbtn" onclick="fetchTrendFeed(true)">Check now</button></div><div class="ttext" style="color:var(--muted)">Current trends load automatically when available, and feed into “Style me”.</div></div>`;}
 
 /* ---- manual outfit builder ---- */
 function openBuild(){if(!state.items.length){toast("Add some pieces first");return;}state.buildIds=[];renderBuild();$('buildSheet').classList.add('up');}
@@ -798,7 +795,7 @@ try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}applyTheme(getTheme());loadTaste();loadTrends();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
+(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderWardrobe();})();
 </script>
 </body>
 </html>
