@@ -285,6 +285,7 @@
   <input type="file" accept="image/*" id="multiInput" multiple style="display:none">
   <input type="file" accept="application/json" id="importInput" style="display:none">
   <input type="file" accept="application/json" id="importClosetInput" style="display:none">
+  <input type="file" accept="application/json" id="importAllInput" style="display:none">
   <input type="file" accept="image/*" capture="environment" id="tagInput" style="display:none">
   <div class="toast" id="toast"></div>
 </div>
@@ -732,6 +733,9 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     ${getClosets().map(c=>`<div class="closetrow"><span class="cn">${c.name}${c.id===CID?' <span class="cactive">active</span>':''}</span><div class="crbtns">${c.id===CID?'':`<button class="mini2" onclick="switchCloset('${c.id}')">Use</button>`}<button class="mini2" onclick="exportCloset('${c.id}')">Export</button><button class="mini2" onclick="renameCloset('${c.id}')">Rename</button><button class="mini2" onclick="deleteCloset('${c.id}')">Delete</button></div></div>`).join("")}
     <button class="btn btn-ghost" style="margin:10px 0" onclick="newCloset()">New empty closet</button>
     <button class="btn btn-ghost" onclick="importClosetStart()">Import a file as a new closet</button>
+    <div class="note" style="margin:14px 0 8px;line-height:1.6">Back up <b>everything</b> at once — all closets in a single file — and restore them together on another device.</div>
+    <button class="btn btn-ghost" style="margin-bottom:10px" onclick="exportAllClosets()">Export ALL closets (one file)</button>
+    <button class="btn btn-ghost" onclick="importAllStart()">Import ALL closets…</button>
     <div class="seclabel" style="margin-top:24px">Backup &amp; restore</div>
     <div class="note" style="margin-bottom:14px;line-height:1.65">Export a backup of the <b>active</b> closet now and then so you never lose it — and import it back on a new phone or after clearing the browser.</div>
     <button class="btn btn-ghost" style="margin-bottom:10px" onclick="exportData()">Export backup (${state.items.length} pieces)</button>
@@ -808,6 +812,43 @@ $('importClosetInput').addEventListener('change',async e=>{
   state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
   renderWardrobe();renderSaved();renderSettings();renderClosetBar();toast('Imported as "'+nm+'" ('+data.items.length+' pieces)');
 });
+async function exportAllClosets(){try{
+  const list=getClosets();const out=[];
+  for(const c of list){
+    const items=await idbAllFrom(dbName(c.id),'items');const saved=await idbAllFrom(dbName(c.id),'looks');
+    let t=null,p=null;try{const tv=localStorage.getItem(tasteKey(c.id));if(tv)t=JSON.parse(tv);}catch(e){}
+    try{const pv=localStorage.getItem(profileKey(c.id));if(pv)p=JSON.parse(pv);}catch(e){}
+    out.push({name:c.name,items,saved,taste:t,profile:p});
+  }
+  const data={app:'ensemble',kind:'all',v:1,date:new Date().toISOString(),theme:getTheme(),closets:out};
+  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stylist-all-closets-'+new Date().toISOString().slice(0,10)+'.json';
+  document.body.appendChild(a);a.click();a.remove();toast("Exported "+list.length+" closet"+(list.length>1?"s":""));
+}catch(_){toast("Export failed");}}
+function importAllStart(){$('importAllInput').value="";$('importAllInput').click();}
+$('importAllInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  let data;try{data=JSON.parse(await file.text());}catch(_){toast("That file isn't a valid backup");return;}
+  if(!data||!Array.isArray(data.closets)){toast("Not an all-closets backup");return;}
+  if(!confirm("Import "+data.closets.length+" closet(s)? They'll be added alongside your current ones."))return;
+  const reg=getClosets();let firstId=null;
+  for(const c of data.closets){
+    const id='c_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    reg.push({id,name:(c.name||'Imported')});saveClosets(reg);
+    setCID(id);
+    try{for(const it of (c.items||[])){if(it&&it.id)await idbPut('items',it);}
+      for(const l of (c.saved||[])){if(l&&l.sid)await idbPut('looks',l);}}catch(_){}
+    if(c.taste){try{localStorage.setItem(tasteKey(id),JSON.stringify(c.taste));}catch(e){}}
+    if(c.profile){try{localStorage.setItem(profileKey(id),JSON.stringify(c.profile));}catch(e){}}
+    if(!firstId)firstId=id;
+  }
+  setCID(firstId||CID);loadTaste();loadProfile();
+  try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){state.items=[];state.saved=[];}
+  state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
+  renderWardrobe();renderSaved();renderSettings();renderClosetBar();
+  toast("Imported "+data.closets.length+" closet"+(data.closets.length>1?"s":""));
+});
+function saveSettings(){const v=($('keyInput')?.value||"").trim();setKey(v);refreshAIBadge();renderSettings();toast(v?"AI switched on":"Saved");}
 function checkEnv(){const el=$('envwarn');if(!el)return;let msg='';
   if(location.protocol==='file:')msg="You opened the local file. Open the app from its web address (https://…github.io/…) instead — from a file, trends and your saved API key won't work.";
   else{try{localStorage.setItem('ensemble:__t','1');localStorage.removeItem('ensemble:__t');}catch(e){msg="Your browser is blocking site storage (private/incognito mode?). Your API key and wardrobe can't be saved here — use a normal window.";}}
