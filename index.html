@@ -148,7 +148,7 @@
   .cwrap canvas{max-width:100%;max-height:46vh;touch-action:none;display:block;cursor:crosshair}
   .edit-foot{display:flex;gap:10px}.edit-foot .mini{flex:1}
   .seclabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
-  .closetbar{padding:0 18px 10px;position:relative}
+  .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbtn{display:inline-flex;align-items:center;gap:7px;max-width:100%;border:1px solid var(--hair);background:var(--card);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--ink);font-family:inherit;cursor:pointer}
   .closetbtn .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
   .closetbtn .cv{opacity:.55;font-size:11px}
@@ -199,6 +199,7 @@
 
   <div class="closetbar" id="closetbar" style="display:none"></div>
   <div class="cmback" id="cmback" onclick="closeClosetMenu()"></div>
+  <div id="envwarn" class="envwarn" style="display:none"></div>
 
   <div class="scroll" id="scroll">
     <section class="screen on" id="v-wardrobe">
@@ -807,6 +808,10 @@ $('importClosetInput').addEventListener('change',async e=>{
   state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
   renderWardrobe();renderSaved();renderSettings();renderClosetBar();toast('Imported as "'+nm+'" ('+data.items.length+' pieces)');
 });
+function checkEnv(){const el=$('envwarn');if(!el)return;let msg='';
+  if(location.protocol==='file:')msg="You opened the local file. Open the app from its web address (https://…github.io/…) instead — from a file, trends and your saved API key won't work.";
+  else{try{localStorage.setItem('ensemble:__t','1');localStorage.removeItem('ensemble:__t');}catch(e){msg="Your browser is blocking site storage (private/incognito mode?). Your API key and wardrobe can't be saved here — use a normal window.";}}
+  if(msg){el.textContent=msg;el.style.display='block';}else el.style.display='none';}
 function clearKey(){setKey("");refreshAIBadge();renderSettings();toast("Back to manual mode");}
 async function testKey(){
   const k=(($('keyInput')?.value)||getKey()||"").trim();
@@ -919,7 +924,7 @@ try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();})();
+(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();checkEnv();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();})();
 </script>
 </body>
 </html>
