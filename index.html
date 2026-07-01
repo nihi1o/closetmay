@@ -171,6 +171,21 @@
   .themecard.on{border-color:var(--wine);box-shadow:0 0 0 1.5px var(--wine) inset}
   .tsw{display:inline-flex;border-radius:7px;overflow:hidden;border:1px solid var(--hair);flex:0 0 auto}
   .tsw i{width:13px;height:24px;display:block}
+  @media (min-width:900px){
+    #app{max-width:1120px;border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+    .scroll{padding:26px 40px 36px}
+    .top{padding-left:40px;padding-right:40px}
+    .closetbar{padding-left:40px;padding-right:40px}
+    .closetmenu{left:40px}
+    .grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:16px}
+    #looks,#savedList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}
+    #looks .look,#savedList .look{margin-bottom:0}
+    .sbody{max-width:720px;margin:0 auto;width:100%}
+  }
+  @media (min-width:1320px){
+    #app{max-width:1280px}
+    #looks,#savedList{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
 </style>
 </head>
 <body data-theme="mono">
@@ -702,6 +717,8 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <div class="note" style="margin-bottom:16px;line-height:1.65">This app works on its own — you tag pieces by hand and it builds looks. Add your personal Anthropic API key to switch on <b>automatic photo &amp; tag reading</b> and <b>smarter AI styling</b>. The key is stored only on this phone and is never sent anywhere except Anthropic.</div>
     <div class="field"><label>Anthropic API key (optional)</label><input id="keyInput" type="password" value="${k.replace(/"/g,'&quot;')}" placeholder="sk-ant-..."></div>
     <button class="btn btn-primary" onclick="saveSettings()">${k?'Update':'Save'} key</button>
+    <button class="btn btn-ghost" style="margin-top:10px" onclick="testKey()">Test key</button>
+    <div id="keyStatus" class="note" style="margin-top:10px;min-height:1px"></div>
     ${k?`<button class="mini" style="margin-top:10px" onclick="clearKey()">Remove key (back to manual)</button>`:``}
     <div class="note" style="margin-top:18px">Get a key at <span class="link" onclick="openExt('https://console.anthropic.com/settings/keys')">console.anthropic.com</span>. Usage is a few cents; you control the spend.</div>
     <div class="seclabel" style="margin-top:24px">Your profile</div>
@@ -791,6 +808,24 @@ $('importClosetInput').addEventListener('change',async e=>{
   renderWardrobe();renderSaved();renderSettings();renderClosetBar();toast('Imported as "'+nm+'" ('+data.items.length+' pieces)');
 });
 function clearKey(){setKey("");refreshAIBadge();renderSettings();toast("Back to manual mode");}
+async function testKey(){
+  const k=(($('keyInput')?.value)||getKey()||"").trim();
+  const st=$('keyStatus');const set=(c,t)=>{if(st){st.style.color=c;st.innerHTML=t;}};
+  if(!k){set('var(--muted)','Enter a key first, then test.');return;}
+  for(const ch of k){if(ch.charCodeAt(0)>255){set('var(--wine)','✕ The key contains an invalid character (often a “…”). Re-copy the full key from the console — it has no dots.');return;}}
+  set('var(--muted)','<span class="spinner dark"></span> &nbsp;Testing…');
+  try{
+    const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      headers:{"content-type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:MODEL,max_tokens:1,messages:[{role:"user",content:"hi"}]})});
+    if(r.ok){set('var(--ok)','✓ Key works — AI is ready.');return;}
+    let msg='Error '+r.status+'.';
+    try{const d=await r.json();if(d&&d.error&&d.error.message)msg='Error '+r.status+': '+d.error.message;}catch(e){}
+    if(r.status===401)msg+=' — the key is wrong or revoked.';
+    else if(/credit|balance/i.test(msg))msg+=' — add credit in the console (Billing).';
+    set('var(--wine)','✕ '+msg);
+  }catch(e){set('var(--wine)','✕ Could not reach the API: '+((e&&e.message)||'request blocked')+'. Check your connection or an ad-blocker/extension on this page.');}
+}
 function openExt(u){try{window.open(u,'_blank');}catch(e){}}
 
 let toastT;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2200);}
