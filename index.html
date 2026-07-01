@@ -149,6 +149,9 @@
   .edit-foot{display:flex;gap:10px}.edit-foot .mini{flex:1}
   .seclabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
+  .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
+  .closetlabel{font-size:15px;flex:0 0 auto}
+  .closetsel{flex:0 1 auto;max-width:72vw;border:1px solid var(--hair);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 13px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer}
   .closetbtn{display:inline-flex;align-items:center;gap:7px;max-width:100%;border:1px solid var(--hair);background:var(--card);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:600;color:var(--ink);font-family:inherit;cursor:pointer}
   .closetbtn .cnm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
   .closetbtn .cv{opacity:.55;font-size:11px}
@@ -767,17 +770,10 @@ async function switchCloset(id){if(id===CID){return;}setCID(id);loadTaste();load
   state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
   renderWardrobe();renderSaved();renderSettings();renderClosetBar();toast('Now showing: '+closetName(id));}
 function renderClosetBar(){const el=$('closetbar');if(!el)return;const cl=getClosets();
-  if(cl.length<2){el.style.display='none';el.innerHTML='';closeClosetMenu();return;}
-  el.style.display='block';
-  el.innerHTML=`<button class="closetbtn" onclick="toggleClosetMenu(event)"><span style="font-size:14px">📁</span><span class="cnm">${closetName(CID)}</span><span class="cv">▾</span></button>
-    <div class="closetmenu" id="closetmenu">${cl.map(c=>`<button class="cmi ${c.id===CID?'on':''}" onclick="pickCloset('${c.id}')">${c.name}${c.id===CID?'<span class="tick">✓</span>':''}</button>`).join("")}<button class="cmi manage" onclick="manageClosets()">Manage / new closet…</button></div>`;}
-function toggleClosetMenu(e){if(e)e.stopPropagation();const m=$('closetmenu');if(!m)return;
-  if(m.classList.contains('open')){closeClosetMenu();return;}
-  m.classList.add('open');setTimeout(()=>document.addEventListener('click',outsideCloset),0);}
-function outsideCloset(ev){const bar=$('closetbar');if(bar&&!bar.contains(ev.target))closeClosetMenu();}
-function closeClosetMenu(){const m=$('closetmenu');if(m)m.classList.remove('open');document.removeEventListener('click',outsideCloset);}
-function pickCloset(id){closeClosetMenu();switchCloset(id);}
-function manageClosets(){closeClosetMenu();openSettings();}
+  if(cl.length<2){el.style.display='none';el.innerHTML='';return;}
+  el.style.display='flex';
+  el.innerHTML=`<span class="closetlabel">📁</span><select id="closetSelect" class="closetsel" onchange="onClosetSelect(this.value)">${cl.map(c=>`<option value="${c.id}" ${c.id===CID?'selected':''}>${c.name}</option>`).join("")}<option value="__manage">＋ New / manage closets…</option></select>`;}
+function onClosetSelect(v){if(v==='__manage'){const s=$('closetSelect');if(s)s.value=CID;openSettings();return;}switchCloset(v);}
 function newCloset(){const name=(prompt("Name this closet (e.g. a person's name):","New closet")||"").trim();if(!name)return;
   const id='c_'+Date.now().toString(36);const a=getClosets();a.push({id,name});saveClosets(a);switchCloset(id);}
 function renameCloset(id){const a=getClosets();const c=a.find(x=>x.id===id);if(!c)return;const name=(prompt("Rename closet:",c.name)||"").trim();if(!name)return;c.name=name;saveClosets(a);renderSettings();renderClosetBar();toast("Renamed");}
