@@ -148,6 +148,15 @@
   .cwrap canvas{max-width:100%;max-height:46vh;touch-action:none;display:block;cursor:crosshair}
   .edit-foot{display:flex;gap:10px}.edit-foot .mini{flex:1}
   .seclabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+  .cropwrap{position:relative;width:100%;background:var(--look);border-radius:12px;overflow:hidden;touch-action:none;user-select:none}
+  .cropwrap img{display:block;width:100%;height:auto;pointer-events:none}
+  .cropshade{position:absolute;inset:0;background:rgba(0,0,0,.5);pointer-events:none}
+  .cropbox{position:absolute;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);cursor:move}
+  .crophandle{position:absolute;width:26px;height:26px;background:#fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+  .ch-nw{left:-13px;top:-13px;cursor:nwse-resize}
+  .ch-ne{right:-13px;top:-13px;cursor:nesw-resize}
+  .ch-sw{left:-13px;bottom:-13px;cursor:nesw-resize}
+  .ch-se{right:-13px;bottom:-13px;cursor:nwse-resize}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -286,6 +295,19 @@
   <input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none">
   <input type="file" accept="image/*" id="multiInput" multiple style="display:none">
   <input type="file" accept="image/*" capture="environment" id="flatInput" style="display:none">
+  <input type="file" accept="image/*" id="replaceInput" style="display:none">
+
+  <div class="sheet" id="cropSheet">
+    <div class="shead"><div class="t">Crop</div><button class="x" onclick="closeCrop()">✕</button></div>
+    <div class="sbody">
+      <div class="note" style="text-align:center;margin-bottom:12px">Drag the handles to frame the piece.</div>
+      <div class="cropwrap" id="cropWrap"></div>
+      <div class="edit-foot" style="margin-top:14px">
+        <button class="mini" onclick="resetCrop()">Reset</button>
+        <button class="btn btn-primary" style="flex:1" onclick="applyCrop()">Crop</button>
+      </div>
+    </div>
+  </div>
   <input type="file" accept="application/json" id="importInput" style="display:none">
   <input type="file" accept="application/json" id="importClosetInput" style="display:none">
   <input type="file" accept="application/json" id="importAllInput" style="display:none">
@@ -295,9 +317,9 @@
 
 <script>
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
-const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Accessory"];
+const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-1";
+const APP_VERSION="2026-07-13-2";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -384,14 +406,14 @@ async function callAI(content,maxTokens,tools){
 function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
 async function aiTag(dataURL){const base64=dataURL.split(',')[1];
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
   return parseJSON(txt);}
 async function aiStyle(items,occasion,wnote){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' It is '+month+'. Channel these CURRENT real-world fashion trends where they suit the pieces and occasion: '+state.trends.text+'.'):(' It is '+month+', so keep trends season-appropriate.');
   const rules=' Avoid common styling mistakes: never combine two of the same base layer in one outfit (e.g. two T-shirts); keep formality coherent across every piece (do not pair smart items like a belt or blazer with athletic pieces like sweatpants or joggers); never put sportswear or athleisure — sweatpants, joggers, gym wear, football or sports jerseys — into dressy occasions such as Dinner or Evening. Every outfit must be coherent in formality and appropriate to the occasion.';
-  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear, a Purse and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
   return parseJSON(txt);}
 
 /* ---- local fallback styler ---- */
@@ -458,6 +480,7 @@ function flatLayHTML(pcs){
   const dress=pcs.find(p=>p.category==='Dress');
   const bottom=pcs.find(p=>p.category==='Bottom');
   const shoes=pcs.find(p=>p.category==='Shoes');
+  const purse=pcs.find(p=>p.category==='Purse');
   const accs=pcs.filter(p=>p.category==='Accessory');
   const slot=(p,style)=>p?`<div class="slot" style="${style}"><img src="${p.photo}" alt=""></div>`:'';
   let h='';
@@ -473,8 +496,9 @@ function flatLayHTML(pcs){
     h+=slot(bottom,'left:24%;top:42%;width:52%;height:42%;transform:rotate(-2deg)');
   }
   h+=slot(shoes,'left:32%;bottom:2%;width:36%;height:20%;transform:rotate(3deg)');
+  if(purse)h+=slot(purse,'left:2%;bottom:4%;width:26%;height:24%;transform:rotate(-7deg)');
   if(accs[0])h+=slot(accs[0],'right:1%;top:8%;width:22%;height:20%;transform:rotate(8deg)');
-  if(accs[1])h+=slot(accs[1],'left:1%;bottom:25%;width:20%;height:18%;transform:rotate(-8deg)');
+  if(accs[1])h+=slot(accs[1],'right:2%;bottom:6%;width:20%;height:18%;transform:rotate(-8deg)');
   return `<div class="flatlay">${h}</div>`;
 }
 function lookVisual(pcs){
@@ -508,11 +532,11 @@ function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
 async function aiDetectItems(dataURL){const base64=dataURL.split(',')[1];
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
+    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
   const arr=parseJSON(txt);return Array.isArray(arr)?arr:[];}
-function cropImage(dataURL,box){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
   const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
-  const pad=2;
+  pad=(pad===undefined)?0:pad;
   let x=Math.max(0,(Number(box.x)||0)-pad), y=Math.max(0,(Number(box.y)||0)-pad);
   let w=Math.min(100-x,(Number(box.w)||0)+pad*2), h=Math.min(100-y,(Number(box.h)||0)+pad*2);
   if(w<=1||h<=1){rej(new Error('bad box'));return;}
@@ -534,7 +558,7 @@ $('flatInput').addEventListener('change',async e=>{
   $('addBody').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Cutting out ${boxes.length} pieces…</div>`;
   const q=[];
   for(const b of boxes){
-    try{const crop=await cropImage(dataURL,b);
+    try{const crop=await cropImage(dataURL,b,2);
       const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
       try{it.photo=await cutout(crop);}catch(_){}
       q.push(it);
@@ -564,7 +588,7 @@ async function viaProxy(url,asBlob){
 async function aiReadProduct(html){
   const head=(html.match(/<head[\s\S]*?<\/head>/i)||[''])[0];
   const snip=(head+html.replace(/<script[\s\S]*?<\/script>/gi,'')).slice(0,16000);
-  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
+  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
   return parseJSON(txt);
 }
 function startLink(){if(!hasAI()){toast("Turn on AI in Settings first");return;}
@@ -641,9 +665,13 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
   const cat=p.category||"Top";const editing=!!state.editingId;const inBatch=!!state.batch;const inPile=!!state.pile;
   const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(inPile?"Save & next piece":(editing?"Save changes":"Add to wardrobe"));
   $('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="mini" style="flex:1" onclick="syncFields();rotatePending()">↻ Rotate</button>
+      <button class="mini" style="flex:1" onclick="syncFields();openCrop()">⛶ Crop</button>
       <button class="mini" style="flex:1" onclick="syncFields();openEdit()">✎ Touch up</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="mini" style="flex:1" onclick="syncFields();replacePhoto()">🔄 Replace photo</button>
       <button class="mini" style="flex:1" onclick="syncFields();scanTag()">⌗ Tag</button>
     </div>
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
@@ -676,7 +704,7 @@ async function aiReadTag(dataURL,barcode){
   const base64=dataURL.split(',')[1];
   const txt=await callAI([
     {type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'This is a photo of a clothing brand or care label'+(barcode?(' with barcode '+barcode):'')+'. Read what you can and reply with ONLY a JSON object, no markdown. Keys: brand (brand name if visible else ""), category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory, or ""), subtype (short, e.g. "merino crew knit", else ""), color (plain word or ""), formality (Casual, Smart, Formal or ""), material (e.g. "100% wool" or "").'}
+    {type:"text",text:'This is a photo of a clothing brand or care label'+(barcode?(' with barcode '+barcode):'')+'. Read what you can and reply with ONLY a JSON object, no markdown. Keys: brand (brand name if visible else ""), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory, or ""), subtype (short, e.g. "merino crew knit", else ""), color (plain word or ""), formality (Casual, Smart, Formal or ""), material (e.g. "100% wool" or "").'}
   ],400);
   return parseJSON(txt);
 }
@@ -701,6 +729,54 @@ $('tagInput').addEventListener('change',async e=>{
 function syncFields(){const p=state.pending;if(!p)return;if($('f-brand'))p.brand=$('f-brand').value.trim();if($('f-sub'))p.subtype=$('f-sub').value.trim();if($('f-col'))p.color=$('f-col').value.trim();if($('f-form'))p.formality=$('f-form').value;if($('f-season'))p.season=$('f-season').value;}
 
 /* ---- touch-up editor ---- */
+/* ---- replace photo (keeps the description) ---- */
+function replacePhoto(){if(!state.pending)return;$('replaceInput').value="";$('replaceInput').click();}
+$('replaceInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;const p=state.pending;if(!p)return;
+  let dataURL;try{dataURL=await resize(file,1024);}catch(_){toast("Couldn't read that photo");return;}
+  p.orig=dataURL;p.photo=dataURL;renderAddBody({cutout:true});
+  try{p.photo=await cutout(dataURL);}catch(_){}
+  renderAddBody({});toast("Photo replaced — details kept");
+});
+
+/* ---- crop ---- */
+const cr={box:null,drag:null,start:null,imgW:0,imgH:0};
+function openCrop(){const p=state.pending;if(!p)return;
+  $('cropWrap').innerHTML=`<img id="cropImg" src="${p.photo}" alt="">
+    <div class="cropbox" id="cropBox"><div class="crophandle ch-nw" data-h="nw"></div><div class="crophandle ch-ne" data-h="ne"></div><div class="crophandle ch-sw" data-h="sw"></div><div class="crophandle ch-se" data-h="se"></div></div>`;
+  $('cropSheet').classList.add('up');
+  const img=$('cropImg');
+  const init=()=>{cr.imgW=img.clientWidth;cr.imgH=img.clientHeight;resetCrop();bindCrop();};
+  if(img.complete&&img.clientWidth)init();else img.onload=init;}
+function closeCrop(){$('cropSheet').classList.remove('up');}
+function resetCrop(){const w=cr.imgW,h=cr.imgH;cr.box={x:w*0.08,y:h*0.08,w:w*0.84,h:h*0.84};drawCrop();}
+function drawCrop(){const b=$('cropBox');if(!b||!cr.box)return;
+  b.style.left=cr.box.x+'px';b.style.top=cr.box.y+'px';b.style.width=cr.box.w+'px';b.style.height=cr.box.h+'px';}
+function bindCrop(){const wrap=$('cropWrap'),box=$('cropBox');
+  const pt=e=>{const r=wrap.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};};
+  const down=e=>{const h=e.target.getAttribute&&e.target.getAttribute('data-h');
+    cr.drag=h||'move';cr.start={p:pt(e),box:{...cr.box}};try{wrap.setPointerCapture(e.pointerId);}catch(_){}e.preventDefault();};
+  const move=e=>{if(!cr.drag||!cr.start)return;const p=pt(e),s=cr.start,dx=p.x-s.p.x,dy=p.y-s.p.y;const W=cr.imgW,H=cr.imgH;const MIN=40;let b={...s.box};
+    if(cr.drag==='move'){b.x=Math.min(Math.max(0,s.box.x+dx),W-s.box.w);b.y=Math.min(Math.max(0,s.box.y+dy),H-s.box.h);}
+    else{
+      if(cr.drag.indexOf('w')>=0){const nx=Math.min(Math.max(0,s.box.x+dx),s.box.x+s.box.w-MIN);b.x=nx;b.w=s.box.x+s.box.w-nx;}
+      if(cr.drag.indexOf('e')>=0){b.w=Math.min(Math.max(MIN,s.box.w+dx),W-s.box.x);}
+      if(cr.drag.indexOf('n')>=0){const ny=Math.min(Math.max(0,s.box.y+dy),s.box.y+s.box.h-MIN);b.y=ny;b.h=s.box.y+s.box.h-ny;}
+      if(cr.drag.indexOf('s')>=0){b.h=Math.min(Math.max(MIN,s.box.h+dy),H-s.box.y);}
+    }
+    cr.box=b;drawCrop();e.preventDefault();};
+  const up=e=>{cr.drag=null;cr.start=null;try{wrap.releasePointerCapture(e.pointerId);}catch(_){}};
+  wrap.onpointerdown=down;wrap.onpointermove=move;wrap.onpointerup=up;wrap.onpointercancel=up;}
+async function applyCrop(){const p=state.pending;if(!p||!cr.box||!cr.imgW)return;
+  const box={x:cr.box.x/cr.imgW*100,y:cr.box.y/cr.imgH*100,w:cr.box.w/cr.imgW*100,h:cr.box.h/cr.imgH*100};
+  try{
+    const cropped=await cropImage(p.photo,box);
+    let origCropped=cropped;
+    try{if(p.orig)origCropped=await cropImage(p.orig,box);}catch(_){}
+    p.photo=cropped;p.orig=origCropped;
+    closeCrop();renderAddBody({});toast("Cropped");
+  }catch(_){toast("Couldn't crop that");}}
+
 const ed={canvas:null,ctx:null,orig:null,mode:'erase',size:34,drawing:false,last:null,stack:[],zoom:false};
 function toggleZoom(){if(!ed.canvas)return;const c=ed.canvas;ed.zoom=!ed.zoom;
   if(ed.zoom){const base=(c.getBoundingClientRect().width)||$('cwrap').clientWidth||300;const w=base*2;c.style.width=w+'px';c.style.height=(w*c.height/c.width)+'px';c.style.maxWidth='none';}
