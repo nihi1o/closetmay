@@ -285,6 +285,7 @@
 
   <input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none">
   <input type="file" accept="image/*" id="multiInput" multiple style="display:none">
+  <input type="file" accept="image/*" capture="environment" id="flatInput" style="display:none">
   <input type="file" accept="application/json" id="importInput" style="display:none">
   <input type="file" accept="application/json" id="importClosetInput" style="display:none">
   <input type="file" accept="application/json" id="importAllInput" style="display:none">
@@ -504,13 +505,54 @@ function setOcc(o){state.occasion=o;renderOcc();}
 function newId(){return 'it_'+Date.now()+'_'+Math.floor(Math.random()*1e5);}
 function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
+async function aiDetectItems(dataURL){const base64=dataURL.split(',')[1];
+  const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
+    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
+  const arr=parseJSON(txt);return Array.isArray(arr)?arr:[];}
+function cropImage(dataURL,box){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+  const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
+  const pad=2;
+  let x=Math.max(0,(Number(box.x)||0)-pad), y=Math.max(0,(Number(box.y)||0)-pad);
+  let w=Math.min(100-x,(Number(box.w)||0)+pad*2), h=Math.min(100-y,(Number(box.h)||0)+pad*2);
+  if(w<=1||h<=1){rej(new Error('bad box'));return;}
+  const sx=Math.round(W*x/100),sy=Math.round(H*y/100),sw=Math.round(W*w/100),sh=Math.round(H*h/100);
+  const c=document.createElement('canvas');c.width=sw;c.height=sh;
+  c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
+  res(c.toDataURL('image/png'));};img.onerror=rej;img.src=dataURL;});}
+
+async function startFlatLay(){if(!hasAI()){toast("Turn on AI in Settings first");return;}$('flatInput').value="";$('flatInput').click();}
+$('flatInput').addEventListener('change',async e=>{
+  const file=e.target.files&&e.target.files[0];if(!file)return;
+  state.batch=null;state.editingId=null;state.pile=false;state.guided=false;
+  let dataURL;try{dataURL=await resize(file,1600);}catch(_){toast("Couldn't read that photo");return;}
+  setAddTitle("Scanning the pile");openAdd();
+  $('addBody').innerHTML=`<div class="preview"><img src="${dataURL}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Finding the pieces…</div>`;
+  let boxes=[];try{boxes=await aiDetectItems(dataURL);}catch(_){}
+  boxes=boxes.filter(b=>b&&Number(b.w)>4&&Number(b.h)>4);
+  if(!boxes.length){$('addBody').innerHTML=`<div class="preview"><img src="${dataURL}"></div><div class="note" style="text-align:center;margin:18px 0">No separate pieces found. Try laying them further apart, with good light and a plain floor.</div><button class="btn btn-ghost" onclick="renderChooser();setAddTitle('Add pieces')">Back</button>`;return;}
+  $('addBody').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Cutting out ${boxes.length} pieces…</div>`;
+  const q=[];
+  for(const b of boxes){
+    try{const crop=await cropImage(dataURL,b);
+      const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
+      try{it.photo=await cutout(crop);}catch(_){}
+      q.push(it);
+    }catch(_){}
+  }
+  if(!q.length){toast("Couldn't cut those out");closeAdd();return;}
+  state.batch=q;state.batchIdx=0;presentDetected();
+});
+async function presentDetected(){state.pending=state.batch[state.batchIdx];
+  setAddTitle("Found ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({});}
+
 function renderChooser(){$('addBody').innerHTML=`
   <div class="note" style="text-align:center;margin:8px 0 18px">How would you like to add?</div>
+  <button class="btn btn-primary" style="margin-bottom:10px" onclick="startFlatLay()">📸 Photo of a pile — detect several at once</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startGuided()">One piece: garment + tag</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startPileMode()">Whole pile: garment + tag, looped</button>
   <button class="btn btn-ghost" style="margin-bottom:10px" onclick="startSingle()">Garment photo only</button>
   <button class="btn btn-ghost" onclick="startMulti()">Pick several from gallery</button>
-  <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">With AI on, the <b>garment + tag</b> modes snap the piece (colour &amp; type) then its tag (brand) automatically. <b>Whole pile</b> repeats that for piece after piece until you tap Done.</div>`;}
+  <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">Lay clothes flat and apart on the floor, then use <b>Photo of a pile</b>: the AI finds each piece, cuts it out and tags it — you just confirm. (Needs AI on.)</div>`;}
 function startGuided(){state.guided=true;startSingle();}
 function startPileMode(){state.pile=true;state.pileCount=0;setAddTitle("Pile · 0 added");startGuided();}
 function startSingle(){$('fileInput').value="";$('fileInput').click();}
@@ -537,6 +579,7 @@ $('multiInput').addEventListener('change',async e=>{
   state.batch=q;state.batchIdx=0;openAdd();presentBatchItem();
 });
 async function presentBatchItem(){state.pending=state.batch[state.batchIdx];
+  if(state.pending&&state.pending.subtype!==undefined&&state.pending.colorHex){return presentDetected();}
   setAddTitle("Tag ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({cutout:true});await processPhoto();}
 function skipBatch(){if(!state.batch)return;state.batchIdx++;if(state.batchIdx<state.batch.length)presentBatchItem();else finishBatch();}
 function finishBatch(){const n=state.batch?state.batch.length:0;state.batch=null;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast("Done adding pieces");}
