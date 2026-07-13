@@ -297,6 +297,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Accessory"];
 const MODEL="claude-sonnet-4-6";
+const APP_VERSION="2026-07-13-1";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -545,13 +546,60 @@ $('flatInput').addEventListener('change',async e=>{
 async function presentDetected(){state.pending=state.batch[state.batchIdx];
   setAddTitle("Found ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({});}
 
+/* ---- import from an online shop by pasting a link ---- */
+const PROXIES=[
+  u=>'https://api.allorigins.win/raw?url='+encodeURIComponent(u),
+  u=>'https://api.codetabs.com/v1/proxy/?quest='+encodeURIComponent(u),
+  u=>'https://corsproxy.io/?url='+encodeURIComponent(u)
+];
+async function viaProxy(url,asBlob){
+  let lastErr;
+  for(const mk of PROXIES){
+    try{const r=await fetch(mk(url));if(!r.ok)throw new Error('HTTP '+r.status);
+      return asBlob?await r.blob():await r.text();}
+    catch(e){lastErr=e;}
+  }
+  throw lastErr||new Error('all proxies failed');
+}
+async function aiReadProduct(html){
+  const head=(html.match(/<head[\s\S]*?<\/head>/i)||[''])[0];
+  const snip=(head+html.replace(/<script[\s\S]*?<\/script>/gi,'')).slice(0,16000);
+  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
+  return parseJSON(txt);
+}
+function startLink(){if(!hasAI()){toast("Turn on AI in Settings first");return;}
+  setAddTitle("Import from a link");openAdd();
+  $('addBody').innerHTML=`<div class="field"><label>Product link</label><input id="linkUrl" placeholder="https://…" autocomplete="off"></div>
+    <div class="note" style="margin-bottom:14px;line-height:1.6">Paste a product page from an online shop. The AI reads the brand, name and colour, and pulls in the product image.</div>
+    <button class="btn btn-primary" onclick="importLink()">Fetch this product</button>
+    <button class="mini" style="margin-top:10px" onclick="renderChooser();setAddTitle('Add pieces')">Back</button>
+    <div id="linkMsg" class="note" style="margin-top:12px"></div>`;
+  setTimeout(()=>$('linkUrl')?.focus(),100);}
+async function importLink(){
+  const url=($('linkUrl')?.value||'').trim();const msg=$('linkMsg');
+  const say=(c,t)=>{if(msg){msg.style.color=c;msg.innerHTML=t;}};
+  if(!/^https?:\/\//i.test(url)){say('var(--wine)','Paste a full link starting with https://');return;}
+  say('var(--muted)','<span class="spinner dark"></span> &nbsp;Fetching the page…');
+  let html;try{html=await viaProxy(url,false);}catch(_){say('var(--wine)','✕ This shop blocked the request. Screenshot the product page and add it as a photo instead — the AI reads it fine.');return;}
+  say('var(--muted)','<span class="spinner dark"></span> &nbsp;Reading the product…');
+  let info;try{info=await aiReadProduct(html);}catch(_){say('var(--wine)','✕ Could not read that page. Try the screenshot route.');return;}
+  if(!info||!info.image){say('var(--wine)','✕ No product image found on that page.');return;}
+  say('var(--muted)','<span class="spinner dark"></span> &nbsp;Getting the image…');
+  let dataURL;
+  try{const blob=await viaProxy(info.image,true);dataURL=await blobToDataURL(blob);}
+  catch(_){say('var(--wine)','✕ Could not download the product image.');return;}
+  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:info.category||'Top',brand:info.brand||'',subtype:info.subtype||'',color:info.color||'',colorHex:info.colorHex||'#b8b2a6',formality:info.formality||'Casual',season:info.season||'Any',source:url};
+  setAddTitle("From link");renderAddBody({});
+  toast(info.brand?("Found: "+info.brand):"Product loaded");}
+
 function renderChooser(){$('addBody').innerHTML=`
   <div class="note" style="text-align:center;margin:8px 0 18px">How would you like to add?</div>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startFlatLay()">📸 Photo of a pile — detect several at once</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startGuided()">One piece: garment + tag</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startPileMode()">Whole pile: garment + tag, looped</button>
   <button class="btn btn-ghost" style="margin-bottom:10px" onclick="startSingle()">Garment photo only</button>
-  <button class="btn btn-ghost" onclick="startMulti()">Pick several from gallery</button>
+  <button class="btn btn-ghost" style="margin-bottom:10px" onclick="startMulti()">Pick several from gallery</button>
+  <button class="btn btn-ghost" onclick="startLink()">🔗 Import from a shop link</button>
   <div class="note" style="text-align:center;margin-top:18px;line-height:1.6">Lay clothes flat and apart on the floor, then use <b>Photo of a pile</b>: the AI finds each piece, cuts it out and tags it — you just confirm. (Needs AI on.)</div>`;}
 function startGuided(){state.guided=true;startSingle();}
 function startPileMode(){state.pile=true;state.pileCount=0;setAddTitle("Pile · 0 added");startGuided();}
@@ -890,6 +938,23 @@ $('importAllInput').addEventListener('change',async e=>{
   toast("Imported "+data.closets.length+" closet"+(data.closets.length>1?"s":""));
 });
 function saveSettings(){const v=($('keyInput')?.value||"").trim();setKey(v);refreshAIBadge();renderSettings();toast(v?"AI switched on":"Saved");}
+async function checkForUpdate(){
+  if(location.protocol==='file:')return;
+  try{
+    const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});
+    if(!r.ok)return;
+    const txt=await r.text();
+    const m=txt.match(/APP_VERSION="([^"]+)"/);
+    if(!m)return;
+    const live=m[1];
+    if(live===APP_VERSION)return;
+    let tried='';try{tried=sessionStorage.getItem('ensemble:reloaded')||'';}catch(e){}
+    if(tried===live)return;                       // already reloaded for this version
+    try{sessionStorage.setItem('ensemble:reloaded',live);}catch(e){}
+    toast("Updating to the latest version…");
+    setTimeout(()=>location.reload(true),700);
+  }catch(_){}
+}
 function checkEnv(){const el=$('envwarn');if(!el)return;let msg='';
   if(location.protocol==='file:')msg="You opened the local file. Open the app from its web address (https://…github.io/…) instead — from a file, trends and your saved API key won't work.";
   else{try{localStorage.setItem('ensemble:__t','1');localStorage.removeItem('ensemble:__t');}catch(e){msg="Your browser is blocking site storage (private/incognito mode?). Your API key and wardrobe can't be saved here — use a normal window.";}}
@@ -1006,7 +1071,7 @@ try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();checkEnv();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();})();
+(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();checkEnv();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();checkForUpdate();})();
 </script>
 </body>
 </html>
