@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-2";
+const APP_VERSION="2026-07-13-3";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -406,7 +406,7 @@ async function callAI(content,maxTokens,tools){
 function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
 async function aiTag(dataURL){const base64=dataURL.split(',')[1];
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
   return parseJSON(txt);}
 async function aiStyle(items,occasion,wnote){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
@@ -471,7 +471,7 @@ function renderGrid(){const g=$('wgrid');
   if(!list.length){g.innerHTML=`<div class="empty"><div class="big" style="margin-top:24px">No pieces match</div><div style="font-size:13px">Try clearing the search or filters.</div></div>`;return;}
   g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt="">
     <span class="dot" style="background:${i.colorHex||'#bbb'}"></span><span class="cat">${i.category}</span>
-    <span class="lbl"><span class="lt">${i.brand?i.brand+' · ':''}${i.subtype||i.color||''}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
+    <span class="lbl"><span class="lt">${i.name?i.name:((i.brand?i.brand+' · ':'')+(i.subtype||i.color||''))}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
     +`<button class="add-tile" onclick="startAdd()"><div><div class="p">+</div>Add</div></button></div>`;}
 function renderOcc(){$('occ').innerHTML=OCCASIONS.map(o=>`<button class="chip ${state.occasion===o?'on':''}" onclick="setOcc('${o}')">${o}</button>`).join("");}
 function flatLayHTML(pcs){
@@ -532,7 +532,7 @@ function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
 async function aiDetectItems(dataURL){const base64=dataURL.split(',')[1];
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:"image/jpeg",data:base64}},
-    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
+    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, name (short descriptive title in English), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
   const arr=parseJSON(txt);return Array.isArray(arr)?arr:[];}
 function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
   const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
@@ -559,7 +559,7 @@ $('flatInput').addEventListener('change',async e=>{
   const q=[];
   for(const b of boxes){
     try{const crop=await cropImage(dataURL,b,2);
-      const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
+      const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
       try{it.photo=await cutout(crop);}catch(_){}
       q.push(it);
     }catch(_){}
@@ -588,7 +588,7 @@ async function viaProxy(url,asBlob){
 async function aiReadProduct(html){
   const head=(html.match(/<head[\s\S]*?<\/head>/i)||[''])[0];
   const snip=(head+html.replace(/<script[\s\S]*?<\/script>/gi,'')).slice(0,16000);
-  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
+  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: name (short descriptive title in English), brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
   return parseJSON(txt);
 }
 function startLink(){if(!hasAI()){toast("Turn on AI in Settings first");return;}
@@ -612,7 +612,7 @@ async function importLink(){
   let dataURL;
   try{const blob=await viaProxy(info.image,true);dataURL=await blobToDataURL(blob);}
   catch(_){say('var(--wine)','✕ Could not download the product image.');return;}
-  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:info.category||'Top',brand:info.brand||'',subtype:info.subtype||'',color:info.color||'',colorHex:info.colorHex||'#b8b2a6',formality:info.formality||'Casual',season:info.season||'Any',source:url};
+  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:info.category||'Top',name:info.name||'',brand:info.brand||'',subtype:info.subtype||'',color:info.color||'',colorHex:info.colorHex||'#b8b2a6',formality:info.formality||'Casual',season:info.season||'Any',source:url};
   setAddTitle("From link");renderAddBody({});
   toast(info.brand?("Found: "+info.brand):"Product loaded");}
 
@@ -677,6 +677,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
     ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
     <div class="field"><label>Category</label><div class="catrow" id="catRow">${CATS.map(c=>`<button class="chip ${c===cat?'on':''}" onclick="setPendingCat('${c}')">${c}</button>`).join("")}</div></div>
+    <div class="field"><label>Name</label><input id="f-name" value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="e.g. Beige oversized linen shirt"></div>
     <div class="field"><label>Brand</label><input id="f-brand" value="${(p.brand||'').replace(/"/g,'&quot;')}" placeholder="e.g. COS"></div>
     <div class="field"><label>What is it</label><input id="f-sub" value="${(p.subtype||'').replace(/"/g,'&quot;')}" placeholder="e.g. white cotton shirt"></div>
     <div class="field"><label>Colour</label><input id="f-col" value="${(p.color||'').replace(/"/g,'&quot;')}" placeholder="e.g. camel"></div>
@@ -726,7 +727,7 @@ $('tagInput').addEventListener('change',async e=>{
     }catch(_){renderAddBody({});toast(barcode?("Barcode "+barcode):"Couldn't read the tag");}
   }else{renderAddBody({});toast(barcode?("Barcode "+barcode+" — add brand below"):"Add the brand below, or turn on AI");}
 });
-function syncFields(){const p=state.pending;if(!p)return;if($('f-brand'))p.brand=$('f-brand').value.trim();if($('f-sub'))p.subtype=$('f-sub').value.trim();if($('f-col'))p.color=$('f-col').value.trim();if($('f-form'))p.formality=$('f-form').value;if($('f-season'))p.season=$('f-season').value;}
+function syncFields(){const p=state.pending;if(!p)return;if($('f-name'))p.name=$('f-name').value.trim();if($('f-brand'))p.brand=$('f-brand').value.trim();if($('f-sub'))p.subtype=$('f-sub').value.trim();if($('f-col'))p.color=$('f-col').value.trim();if($('f-form'))p.formality=$('f-form').value;if($('f-season'))p.season=$('f-season').value;}
 
 /* ---- touch-up editor ---- */
 /* ---- replace photo (keeps the description) ---- */
@@ -809,7 +810,7 @@ function bindEdit(){const c=ed.canvas;
 function applyEdit(){if(!ed.canvas)return;state.pending.photo=ed.canvas.toDataURL('image/png');closeEdit();renderAddBody({});toast("Cut-out updated");}
 
 async function saveItem(){const p=state.pending;if(!p)return;
-  p.category=p.category||"Top";p.brand=($('f-brand')?.value||p.brand||"").trim();p.subtype=($('f-sub')?.value||"").trim();p.color=($('f-col')?.value||"").trim();p.formality=$('f-form')?.value||"Casual";p.season=$('f-season')?.value||"Any";if(!p.colorHex)p.colorHex="#b8b2a6";
+  p.category=p.category||"Top";p.name=($('f-name')?.value||p.name||"").trim();p.brand=($('f-brand')?.value||p.brand||"").trim();p.subtype=($('f-sub')?.value||"").trim();p.color=($('f-col')?.value||"").trim();p.formality=$('f-form')?.value||"Casual";p.season=$('f-season')?.value||"Any";if(!p.colorHex)p.colorHex="#b8b2a6";
   await idbPut('items',p);
   if(state.editingId){const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]=p;else state.items.push(p);}
   else if(!state.items.some(x=>x.id===p.id))state.items.push(p);
