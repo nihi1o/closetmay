@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-7";
+const APP_VERSION="2026-07-13-8";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -383,7 +383,7 @@ function rotateImage(dataURL,deg){return new Promise((res,rej)=>{const img=new I
   const ctx=c.getContext('2d');ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-w/2,-h/2);
   res(c.toDataURL('image/png'));};img.onerror=rej;img.src=dataURL;});}
 async function rotatePending(){const p=state.pending;if(!p)return;
-  try{p.photo=await rotateImage(p.photo,90);if(p.orig)p.orig=await rotateImage(p.orig,90);}catch(_){toast("Couldn't rotate");return;}
+  try{p.photo=await rotateImage(p.photo,90);if(p.orig)p.orig=await rotateImage(p.orig,90);if(p.cut)p.cut=await rotateImage(p.cut,90);}catch(_){toast("Couldn't rotate");return;}
   renderAddBody({});}
 async function cutout(dataURL){
   const fn=await loadRMBG();
@@ -560,7 +560,7 @@ $('flatInput').addEventListener('change',async e=>{
   for(const b of boxes){
     try{const crop=await cropImage(dataURL,b,2);
       const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
-      try{it.photo=await cutout(crop);}catch(_){}
+      try{it.photo=await cutout(crop);it.cut=it.photo;}catch(_){it.cut=crop;}
       q.push(it);
     }catch(_){}
   }
@@ -631,7 +631,7 @@ function startSingle(){$('fileInput').value="";$('fileInput').click();}
 function startMulti(){$('multiInput').value="";$('multiInput').click();}
 
 async function processPhoto(){const p=state.pending;
-  try{const png=await cutout(p.orig);p.photo=png;renderAddBody({cutout:true});}catch(_){p.bgFailed=true;}
+  try{const png=await cutout(p.orig);p.photo=png;p.cut=png;renderAddBody({cutout:true});}catch(_){p.bgFailed=true;}
   if(hasAI()){renderAddBody({loading:true});try{const tags=await aiTag(p.photo);Object.assign(p,tags);renderAddBody({});}catch(_){renderAddBody({failed:true});}}
   else renderAddBody({manual:true});}
 
@@ -679,6 +679,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
       <button class="mini" style="flex:1" onclick="syncFields();undoCut()">↩︎ Undo cut-out</button>
       <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut background</button>
     </div>
+    <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" onchange="fitPending(+this.value)"></div>
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
     ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
     <div class="field"><label>Category</label><div class="catrow" id="catRow">${CATS.map(c=>`<button class="chip ${c===cat?'on':''}" onclick="setPendingCat('${c}')">${c}</button>`).join("")}</div></div>
@@ -736,48 +737,53 @@ function syncFields(){const p=state.pending;if(!p)return;if($('f-name'))p.name=$
 
 /* ---- touch-up editor ---- */
 /* ---- replace photo (keeps the description) ---- */
-/* ---- studio look: uniform centred framing + soft shadow, transparent bg ---- */
-function studioProcess(dataURL,cat){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
-  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h){res(dataURL);return;}
+/* ---- studio look / presentation size ---- */
+function bigCat(c){return c==='Top'||c==='Bottom'||c==='Dress'||c==='Outerwear';}
+function defFit(c){return bigCat(c)?92:66;}
+function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h){res(src);return;}
   const t=document.createElement('canvas');t.width=w;t.height=h;const tc=t.getContext('2d');tc.drawImage(img,0,0);
-  let data;try{data=tc.getImageData(0,0,w,h).data;}catch(_){res(dataURL);return;}
-  let minX=w,minY=h,maxX=0,maxY=0,found=false;const A=28;
+  let data;try{data=tc.getImageData(0,0,w,h).data;}catch(_){res(src);return;}
+  let minX=w,minY=h,maxX=0,maxY=0,found=false;const A=24;
   for(let y=0;y<h;y++){const row=y*w;for(let x=0;x<w;x++){if(data[(row+x)*4+3]>A){found=true;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}}}
   if(!found){minX=0;minY=0;maxX=w-1;maxY=h-1;}
   const cw=maxX-minX+1,ch=maxY-minY+1;
-  const big=(cat==='Top'||cat==='Bottom'||cat==='Dress'||cat==='Outerwear');
-  const S=900,margin=big?0.05:0.16,avail=S*(1-margin*2);
-  const scale=Math.min(avail/cw,avail/ch);
+  const S=900,avail=S*Math.max(0.3,Math.min(1,fill));
+  const scale=avail/Math.max(cw,ch);
   const dw=cw*scale,dh=ch*scale,dx=(S-dw)/2,dy=(S-dh)/2;
   const out=document.createElement('canvas');out.width=S;out.height=S;const o=out.getContext('2d');
   o.shadowColor='rgba(0,0,0,0.22)';o.shadowBlur=S*0.03;o.shadowOffsetX=0;o.shadowOffsetY=S*0.02;
   o.drawImage(t,minX,minY,cw,ch,dx,dy,dw,dh);
   res(out.toDataURL('image/png'));
-};img.onerror=rej;img.src=dataURL;});}
-async function studioPending(){const p=state.pending;if(!p)return;
+};img.onerror=rej;img.src=src;});}
+async function fitPending(pct){const p=state.pending;if(!p)return;
   renderAddBody({loading:true});
-  try{p.photo=await studioProcess(p.photo,p.category);p.studio=true;}catch(_){}
+  try{p.photo=await frameItem(p.cut||p.photo,pct/100);p.fit=pct;p.studio=true;}catch(_){}
+  renderAddBody({});}
+async function studioPending(){const p=state.pending;if(!p)return;const pct=p.fit||defFit(p.category);
+  renderAddBody({loading:true});
+  try{p.photo=await frameItem(p.cut||p.photo,pct/100);p.fit=pct;p.studio=true;}catch(_){}
   renderAddBody({});toast("Studio look applied");}
 async function studioAll(){if(!state.items.length){toast("No pieces yet");return;}
   if(!confirm("Give all "+state.items.length+" pieces the studio look? It re-frames every photo (you can't undo in bulk).")) return;
   closeSettings();let n=0;
-  for(const it of state.items){try{it.photo=await studioProcess(it.photo,it.category);it.studio=true;await idbPut('items',it);n++;if(n%4===0)toast("Polishing… "+n+"/"+state.items.length);}catch(_){}}
+  for(const it of state.items){try{const pct=it.fit||defFit(it.category);it.photo=await frameItem(it.cut||it.photo,pct/100);it.fit=pct;it.studio=true;await idbPut('items',it);n++;if(n%4===0)toast("Polishing… "+n+"/"+state.items.length);}catch(_){}}
   renderGrid();toast("Polished "+n+" piece"+(n>1?"s":""));}
 
 function replacePhoto(){if(!state.pending)return;$('replaceInput').value="";$('replaceInput').click();}
 function undoCut(){const p=state.pending;if(!p)return;
   if(!p.orig){toast("No original photo saved for this piece");return;}
-  p.photo=p.orig;p.studio=false;p.bgFailed=true;renderAddBody({});toast("Cut-out removed — original photo restored");}
+  p.photo=p.orig;p.cut=null;p.studio=false;p.bgFailed=true;renderAddBody({});toast("Cut-out removed — original photo restored");}
 async function recut(){const p=state.pending;if(!p)return;
   if(!p.orig){toast("No original photo to work from");return;}
   renderAddBody({cutout:true});
-  try{p.photo=await cutout(p.orig);p.studio=false;p.bgFailed=false;renderAddBody({});toast("Background removed again");}
+  try{p.photo=await cutout(p.orig);p.cut=p.photo;p.studio=false;p.bgFailed=false;renderAddBody({});toast("Background removed again");}
   catch(_){p.photo=p.orig;renderAddBody({});toast("Couldn't remove the background here");}}
 $('replaceInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;const p=state.pending;if(!p)return;
   let dataURL;try{dataURL=await resize(file,1024);}catch(_){toast("Couldn't read that photo");return;}
   p.orig=dataURL;p.photo=dataURL;renderAddBody({cutout:true});
-  try{p.photo=await cutout(dataURL);}catch(_){}
+  try{p.photo=await cutout(dataURL);p.cut=p.photo;}catch(_){p.cut=dataURL;}
   renderAddBody({});toast("Photo replaced — details kept");
 });
 
@@ -816,6 +822,7 @@ async function applyCrop(){const p=state.pending;if(!p||!cr.box||!cr.imgW)return
     let origCropped=cropped;
     try{if(p.orig)origCropped=await cropImage(p.orig,box);}catch(_){}
     p.photo=cropped;p.orig=origCropped;
+    try{if(p.cut)p.cut=await cropImage(p.cut,box);}catch(_){p.cut=cropped;}
     closeCrop();renderAddBody({});toast("Cropped");
   }catch(_){toast("Couldn't crop that");}}
 
