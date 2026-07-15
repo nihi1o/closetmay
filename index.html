@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-3";
+const APP_VERSION="2026-07-13-4";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -672,6 +672,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
     </div>
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <button class="mini" style="flex:1" onclick="syncFields();replacePhoto()">🔄 Replace photo</button>
+      <button class="mini" style="flex:1" onclick="syncFields();studioPending()">✨ Studio</button>
       <button class="mini" style="flex:1" onclick="syncFields();scanTag()">⌗ Tag</button>
     </div>
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
@@ -731,6 +732,33 @@ function syncFields(){const p=state.pending;if(!p)return;if($('f-name'))p.name=$
 
 /* ---- touch-up editor ---- */
 /* ---- replace photo (keeps the description) ---- */
+/* ---- studio look: uniform centred framing + soft shadow, transparent bg ---- */
+function studioProcess(dataURL){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h){res(dataURL);return;}
+  const t=document.createElement('canvas');t.width=w;t.height=h;const tc=t.getContext('2d');tc.drawImage(img,0,0);
+  let data;try{data=tc.getImageData(0,0,w,h).data;}catch(_){res(dataURL);return;}
+  let minX=w,minY=h,maxX=0,maxY=0,found=false;const A=28;
+  for(let y=0;y<h;y++){const row=y*w;for(let x=0;x<w;x++){if(data[(row+x)*4+3]>A){found=true;if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;}}}
+  if(!found){minX=0;minY=0;maxX=w-1;maxY=h-1;}
+  const cw=maxX-minX+1,ch=maxY-minY+1;
+  const S=900,margin=0.14,avail=S*(1-margin*2);
+  const scale=Math.min(avail/cw,avail/ch);
+  const dw=cw*scale,dh=ch*scale,dx=(S-dw)/2,dy=(S-dh)/2;
+  const out=document.createElement('canvas');out.width=S;out.height=S;const o=out.getContext('2d');
+  o.shadowColor='rgba(0,0,0,0.22)';o.shadowBlur=S*0.035;o.shadowOffsetX=0;o.shadowOffsetY=S*0.022;
+  o.drawImage(t,minX,minY,cw,ch,dx,dy,dw,dh);
+  res(out.toDataURL('image/png'));
+};img.onerror=rej;img.src=dataURL;});}
+async function studioPending(){const p=state.pending;if(!p)return;
+  renderAddBody({loading:true});
+  try{p.photo=await studioProcess(p.photo);p.studio=true;}catch(_){}
+  renderAddBody({});toast("Studio look applied");}
+async function studioAll(){if(!state.items.length){toast("No pieces yet");return;}
+  if(!confirm("Give all "+state.items.length+" pieces the studio look? It re-frames every photo (you can't undo in bulk).")) return;
+  closeSettings();let n=0;
+  for(const it of state.items){try{it.photo=await studioProcess(it.photo);it.studio=true;await idbPut('items',it);n++;if(n%4===0)toast("Polishing… "+n+"/"+state.items.length);}catch(_){}}
+  renderGrid();toast("Polished "+n+" piece"+(n>1?"s":""));}
+
 function replacePhoto(){if(!state.pending)return;$('replaceInput').value="";$('replaceInput').click();}
 $('replaceInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;const p=state.pending;if(!p)return;
@@ -898,6 +926,9 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <div class="field"><label>Styling</label><div class="chips">${PRESENT.map(p=>`<button class="chip ${profile.present===p?'on':''}" onclick="setPresent('${p}')">${p}</button>`).join("")}</div></div>
     <div class="field"><label>Age group</label><div class="chips">${AGES.map(a=>`<button class="chip ${profile.age===a?'on':''}" onclick="setAge('${a}')">${a}</button>`).join("")}</div></div>
     <div class="field"><label>Your style</label><div class="chips">${PSTYLES.map(s=>`<button class="chip ${profile.styles.includes(s)?'on':''}" onclick="toggleStyle('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("")}</div></div>
+    <div class="seclabel" style="margin-top:24px">Wardrobe look</div>
+    <div class="note" style="margin-bottom:12px;line-height:1.6">Give every piece the same clean framing — centred, even margins and a soft shadow — for a tidy, catalogue-style grid.</div>
+    <button class="btn btn-ghost" onclick="studioAll()">✨ Polish all pieces (Studio look)</button>
     <div class="seclabel" style="margin-top:24px">Closets</div>
     <div class="note" style="margin-bottom:12px;line-height:1.6">Keep separate wardrobes — e.g. one per person. The <b>active</b> closet is what the app shows. Importing a file as a new closet keeps it separate from the others.</div>
     ${getClosets().map(c=>`<div class="closetrow"><span class="cn">${c.name}${c.id===CID?' <span class="cactive">active</span>':''}</span><div class="crbtns">${c.id===CID?'':`<button class="mini2" onclick="switchCloset('${c.id}')">Use</button>`}<button class="mini2" onclick="exportCloset('${c.id}')">Export</button><button class="mini2" onclick="renameCloset('${c.id}')">Rename</button><button class="mini2" onclick="deleteCloset('${c.id}')">Delete</button></div></div>`).join("")}
