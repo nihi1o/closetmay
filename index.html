@@ -142,10 +142,10 @@
   .brushrow{display:flex;align-items:center;gap:12px;margin-bottom:14px}
   .blab{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
   #brush{flex:1;accent-color:var(--wine)}
-  .cwrap{border-radius:16px;overflow:hidden;border:1px solid var(--hair);background-color:#faf8f3;
+  .cwrap{border-radius:16px;overflow:auto;border:1px solid var(--hair);background-color:#faf8f3;max-height:56vh;
     background-image:linear-gradient(45deg,#e3ddd2 25%,transparent 25%),linear-gradient(-45deg,#e3ddd2 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e3ddd2 75%),linear-gradient(-45deg,transparent 75%,#e3ddd2 75%);
     background-size:18px 18px;background-position:0 0,0 9px,9px -9px,-9px 0;display:grid;place-items:center;min-height:200px;margin-bottom:14px}
-  .cwrap canvas{max-width:100%;max-height:46vh;touch-action:none;display:block;cursor:crosshair}
+  .cwrap canvas{display:block;touch-action:none;cursor:crosshair}
   .edit-foot{display:flex;gap:10px}.edit-foot .mini{flex:1}
   .seclabel{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
   .cropwrap{position:relative;width:100%;background:var(--look);border-radius:12px;overflow:hidden;touch-action:none;user-select:none}
@@ -281,10 +281,10 @@
         <button class="etool on" id="tErase" onclick="setMode('erase')">Erase</button>
         <button class="etool" id="tRestore" onclick="setMode('restore')">Restore</button>
         <button class="etool" onclick="undoEdit()">Undo</button>
-        <button class="etool" id="tZoom" onclick="toggleZoom()">Zoom ×2</button>
       </div>
       <div class="brushrow"><span class="blab">Brush</span><input type="range" id="brush" min="6" max="90" value="34" oninput="ed.size=+this.value"></div>
-      <div class="cwrap" id="cwrap" style="overflow:auto"></div>
+      <div class="brushrow"><span class="blab">Size</span><input type="range" id="editZoom" min="100" max="320" value="100" oninput="applyEditZoom(+this.value)"></div>
+      <div class="cwrap" id="cwrap"></div>
       <div class="edit-foot">
         <button class="mini" onclick="closeEdit()">Cancel</button>
         <button class="btn btn-primary" style="flex:2" onclick="applyEdit()">Done</button>
@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-6";
+const APP_VERSION="2026-07-13-7";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -828,12 +828,15 @@ function openEdit(){const p=state.pending;if(!p)return;
   const img=new Image();
   img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth||img.width;c.height=img.naturalHeight||img.height;
     const ctx=c.getContext('2d');ctx.drawImage(img,0,0);
-    ed.canvas=c;ed.ctx=ctx;ed.stack=[];ed.last=null;ed.drawing=false;
-    const w=$('cwrap');w.innerHTML="";w.appendChild(c);c.style.width='100%';c.style.height='auto';c.style.maxWidth='100%';c.style.touchAction='none';ed.zoom=false;$('tZoom')?.classList.remove('on');
+    ed.canvas=c;ed.ctx=ctx;ed.stack=[];ed.last=null;ed.drawing=false;ed.ratio=c.height/c.width;
+    const w=$('cwrap');w.innerHTML="";w.appendChild(c);c.style.touchAction='none';
     ed.orig=new Image();ed.orig.src=p.orig||p.photo;
     setMode('erase');ed.size=+($('brush')?.value||34);bindEdit();
-    $('editSheet').classList.add('up');};
+    $('editSheet').classList.add('up');
+    requestAnimationFrame(()=>{ed.baseW=($('cwrap').clientWidth||320);const z=$('editZoom');if(z)z.value=100;applyEditZoom(100);});};
   img.src=p.photo;}
+function applyEditZoom(pct){if(!ed.canvas||!ed.baseW)return;const wpx=ed.baseW*(pct/100);
+  ed.canvas.style.width=wpx+'px';ed.canvas.style.height=(wpx*ed.ratio)+'px';}
 function closeEdit(){$('editSheet').classList.remove('up');}
 function setMode(m){ed.mode=m;$('tErase')?.classList.toggle('on',m==='erase');$('tRestore')?.classList.toggle('on',m==='restore');}
 function pushUndo(){try{ed.stack.push(ed.ctx.getImageData(0,0,ed.canvas.width,ed.canvas.height));if(ed.stack.length>12)ed.stack.shift();}catch(e){}}
