@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-5";
+const APP_VERSION="2026-07-13-6";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -675,6 +675,10 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
       <button class="mini" style="flex:1" onclick="syncFields();studioPending()">✨ Studio</button>
       <button class="mini" style="flex:1" onclick="syncFields();scanTag()">⌗ Tag</button>
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="mini" style="flex:1" onclick="syncFields();undoCut()">↩︎ Undo cut-out</button>
+      <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut background</button>
+    </div>
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px">Couldn't auto-tag — set it below.</div>`:``}
     ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
     <div class="field"><label>Category</label><div class="catrow" id="catRow">${CATS.map(c=>`<button class="chip ${c===cat?'on':''}" onclick="setPendingCat('${c}')">${c}</button>`).join("")}</div></div>
@@ -761,6 +765,14 @@ async function studioAll(){if(!state.items.length){toast("No pieces yet");return
   renderGrid();toast("Polished "+n+" piece"+(n>1?"s":""));}
 
 function replacePhoto(){if(!state.pending)return;$('replaceInput').value="";$('replaceInput').click();}
+function undoCut(){const p=state.pending;if(!p)return;
+  if(!p.orig){toast("No original photo saved for this piece");return;}
+  p.photo=p.orig;p.studio=false;p.bgFailed=true;renderAddBody({});toast("Cut-out removed — original photo restored");}
+async function recut(){const p=state.pending;if(!p)return;
+  if(!p.orig){toast("No original photo to work from");return;}
+  renderAddBody({cutout:true});
+  try{p.photo=await cutout(p.orig);p.studio=false;p.bgFailed=false;renderAddBody({});toast("Background removed again");}
+  catch(_){p.photo=p.orig;renderAddBody({});toast("Couldn't remove the background here");}}
 $('replaceInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;const p=state.pending;if(!p)return;
   let dataURL;try{dataURL=await resize(file,1024);}catch(_){toast("Couldn't read that photo");return;}
