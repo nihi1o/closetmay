@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-8";
+const APP_VERSION="2026-07-13-9";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -367,8 +367,9 @@ async function idbDel(s,id){try{const db=await idb();return await new Promise(re
 
 /* ---- image resize ---- */
 function resize(file,max=1024){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
+  const png=!!(file&&file.type&&/png/i.test(file.type));
   img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));const w=Math.round(img.width*r),h=Math.round(img.height*r);
-    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL('image/jpeg',0.82));};
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',0.82));};
   img.onerror=()=>{URL.revokeObjectURL(url);rej();};img.src=url;});}
 
 /* ---- background removal (on-device, no key) ---- */
@@ -631,7 +632,8 @@ function startSingle(){$('fileInput').value="";$('fileInput').click();}
 function startMulti(){$('multiInput').value="";$('multiInput').click();}
 
 async function processPhoto(){const p=state.pending;
-  try{const png=await cutout(p.orig);p.photo=png;p.cut=png;renderAddBody({cutout:true});}catch(_){p.bgFailed=true;}
+  if(p.noCut){p.photo=p.orig;p.cut=p.orig;renderAddBody({cutout:true});}
+  else{try{const png=await cutout(p.orig);p.photo=png;p.cut=png;renderAddBody({cutout:true});}catch(_){p.bgFailed=true;}}
   if(hasAI()){renderAddBody({loading:true});try{const tags=await aiTag(p.photo);Object.assign(p,tags);renderAddBody({});}catch(_){renderAddBody({failed:true});}}
   else renderAddBody({manual:true});}
 
@@ -639,14 +641,15 @@ $('fileInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;
   state.batch=null;state.editingId=null;
   let dataURL;try{dataURL=await resize(file);}catch(_){toast("Couldn't read that photo");return;}
-  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:"Top"};
+  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:"Top",noCut:/png/i.test(file.type||'')};
+  if(state.pending.noCut)toast("PNG kept as-is (no auto cut-out)");
   setAddTitle("Add a piece");openAdd();renderAddBody({cutout:true});await processPhoto();
   if(state.guided){state.guided=false;if(hasAI()){toast("Now snap the brand tag");setTimeout(scanTag,400);}}
 });
 $('multiInput').addEventListener('change',async e=>{
   const files=Array.from(e.target.files||[]);if(!files.length)return;
   state.editingId=null;toast("Preparing "+files.length+" photos…");
-  const q=[];for(const f of files){try{const d=await resize(f);q.push({id:newId(),photo:d,orig:d,category:"Top"});}catch(_){}}
+  const q=[];for(const f of files){try{const d=await resize(f);q.push({id:newId(),photo:d,orig:d,category:"Top",noCut:/png/i.test(f.type||'')});}catch(_){}}
   if(!q.length){toast("Couldn't read those photos");return;}
   state.batch=q;state.batchIdx=0;openAdd();presentBatchItem();
 });
@@ -782,7 +785,9 @@ async function recut(){const p=state.pending;if(!p)return;
 $('replaceInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;const p=state.pending;if(!p)return;
   let dataURL;try{dataURL=await resize(file,1024);}catch(_){toast("Couldn't read that photo");return;}
+  const png=/png/i.test(file.type||'');
   p.orig=dataURL;p.photo=dataURL;renderAddBody({cutout:true});
+  if(png){p.cut=dataURL;p.noCut=true;renderAddBody({});toast("PNG kept as-is — details kept");return;}
   try{p.photo=await cutout(dataURL);p.cut=p.photo;}catch(_){p.cut=dataURL;}
   renderAddBody({});toast("Photo replaced — details kept");
 });
