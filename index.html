@@ -294,7 +294,7 @@
 
   <input type="file" accept="image/*" capture="environment" id="fileInput" style="display:none">
   <input type="file" accept="image/*" id="multiInput" multiple style="display:none">
-  <input type="file" accept="image/*" capture="environment" id="flatInput" style="display:none">
+  <input type="file" accept="image/*" id="flatInput" multiple style="display:none">
   <input type="file" accept="image/*" id="replaceInput" style="display:none">
 
   <div class="sheet" id="cropSheet">
@@ -319,7 +319,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-13";
+const APP_VERSION="2026-07-13-14";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -548,25 +548,27 @@ function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new
 
 async function startFlatLay(){if(!hasAI()){toast("Turn on AI in Settings first");return;}$('flatInput').value="";$('flatInput').click();}
 $('flatInput').addEventListener('change',async e=>{
-  const file=e.target.files&&e.target.files[0];if(!file)return;
+  const files=Array.from(e.target.files||[]);if(!files.length)return;
   state.batch=null;state.editingId=null;state.pile=false;state.guided=false;
-  let dataURL;try{dataURL=await resize(file,1600);}catch(_){toast("Couldn't read that photo");return;}
-  setAddTitle("Scanning the pile");openAdd();
-  $('addBody').innerHTML=`<div class="preview"><img src="${dataURL}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Finding the pieces…</div>`;
-  let boxes=[];try{boxes=await aiDetectItems(dataURL);}catch(_){}
-  boxes=boxes.filter(b=>b&&Number(b.w)>4&&Number(b.h)>4);
-  if(!boxes.length){$('addBody').innerHTML=`<div class="preview"><img src="${dataURL}"></div><div class="note" style="text-align:center;margin:18px 0">No separate pieces found. Try laying them further apart, with good light and a plain floor.</div><button class="btn btn-ghost" onclick="renderChooser();setAddTitle('Add pieces')">Back</button>`;return;}
-  $('addBody').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Cutting out ${boxes.length} pieces…</div>`;
-  const q=[];
-  for(const b of boxes){
-    try{const crop=await cropImage(dataURL,b,2);
-      const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
-      try{it.photo=await cutout(crop);it.cut=it.photo;}catch(_){it.cut=crop;}
-      q.push(it);
-    }catch(_){}
+  setAddTitle("Scanning "+(files.length>1?files.length+" photos":"the pile"));openAdd();
+  const all=[];let pi=0;
+  for(const file of files){pi++;
+    let dataURL;try{dataURL=await resize(file,1600);}catch(_){continue;}
+    $('addBody').innerHTML=`<div class="preview"><img src="${dataURL}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Photo ${pi}/${files.length} — finding the pieces…</div>`;
+    let boxes=[];try{boxes=await aiDetectItems(dataURL);}catch(_){}
+    boxes=(boxes||[]).filter(b=>b&&Number(b.w)>4&&Number(b.h)>4);
+    let done=0;
+    for(const b of boxes){
+      try{const crop=await cropImage(dataURL,b,2);
+        const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
+        try{it.photo=await cutout(crop);it.cut=it.photo;}catch(_){it.cut=crop;}
+        all.push(it);done++;
+        $('addBody').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Photo ${pi}/${files.length} — cutting out (${done}/${boxes.length})…<div style="margin-top:8px;font-size:12px">${all.length} piece${all.length>1?'s':''} found so far</div></div>`;
+      }catch(_){}
+    }
   }
-  if(!q.length){toast("Couldn't cut those out");closeAdd();return;}
-  state.batch=q;state.batchIdx=0;presentDetected();
+  if(!all.length){$('addBody').innerHTML=`<div class="note" style="text-align:center;margin:24px 0">No separate pieces found. Lay clothes flat and apart, plain floor, good light, shoot from above.</div><button class="btn btn-ghost" onclick="renderChooser();setAddTitle('Add pieces')">Back</button>`;return;}
+  state.batch=all;state.batchIdx=0;presentDetected();
 });
 async function presentDetected(){state.pending=state.batch[state.batchIdx];
   setAddTitle("Found ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({});}
@@ -619,7 +621,7 @@ async function importLink(){
 
 function renderChooser(){$('addBody').innerHTML=`
   <div class="note" style="text-align:center;margin:8px 0 18px">How would you like to add?</div>
-  <button class="btn btn-primary" style="margin-bottom:10px" onclick="startFlatLay()">📸 Photo of a pile — detect several at once</button>
+  <button class="btn btn-primary" style="margin-bottom:10px" onclick="startFlatLay()">📸 Photo(s) of a pile — detect several at once</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startGuided()">One piece: garment + tag</button>
   <button class="btn btn-primary" style="margin-bottom:10px" onclick="startPileMode()">Whole pile: garment + tag, looped</button>
   <button class="btn btn-ghost" style="margin-bottom:10px" onclick="startSingle()">Garment photo only</button>
