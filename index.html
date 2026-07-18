@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-13-19 -->
+<title>Style Me</title><!-- build-marker: 2026-07-13-20 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -346,7 +346,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-19";
+const APP_VERSION="2026-07-13-20";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -441,7 +441,7 @@ async function aiStyle(items,occasion,wnote){
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' It is '+month+'. Channel these CURRENT real-world fashion trends where they suit the pieces and occasion: '+state.trends.text+'.'):(' It is '+month+', so keep trends season-appropriate.');
   const rules=' Avoid common styling mistakes: never combine two of the same base layer in one outfit (e.g. two T-shirts); keep formality coherent across every piece (do not pair smart items like a belt or blazer with athletic pieces like sweatpants or joggers); never put sportswear or athleisure — sweatpants, joggers, gym wear, football or sports jerseys — into dressy occasions such as Dinner or Evening. Every outfit must be coherent in formality and appropriate to the occasion.';
-  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. An outfit is a Top+Bottom (or a Dress), plus Shoes, optionally Outerwear, a Purse and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. Every outfit MUST be complete and wearable: either a Dress, or a Top AND a Bottom together (a Bottom alone is never acceptable). Add Shoes, and optionally Outerwear, a Purse and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
   return parseJSON(txt);}
 
 /* ---- local fallback styler ---- */
@@ -912,13 +912,41 @@ function finishPile(){const n=state.pileCount||0;state.pile=false;state.pileCoun
 function viewItem(id){const it=itemById(id);if(!it)return;state.batch=null;state.editingId=id;state.pending={...it};setAddTitle("Edit piece");openAdd();renderAddBody({});}
 async function deleteCurrent(){const p=state.pending;if(!p)return;if(!confirm("Remove this piece?"))return;await idbDel('items',p.id);state.items=state.items.filter(x=>x.id!==p.id);closeAdd();renderWardrobe();toast("Removed");}
 
+function repairLooks(looks,pool){
+  const out=[];
+  for(const l of (looks||[])){
+    let ids=(l.itemIds||[]).filter(id=>!!itemById(id));
+    const cats=ids.map(id=>itemById(id).category);
+    const has=c=>cats.indexOf(c)>=0;
+    // a Bottom with no Top and no Dress = incomplete: add a sensible top
+    if(has('Bottom')&&!has('Top')&&!has('Dress')){
+      const tops=pool.filter(i=>i.category==='Top');
+      if(tops.length){
+        const same=tops.filter(t=>t.formality===(l.formality||''));
+        const pickFrom=same.length?same:tops;
+        ids.unshift(pickFrom[Math.floor(Math.random()*pickFrom.length)].id);
+      }
+    }
+    // shoes are nice to have, add if the look has none
+    if(!cats.includes('Shoes')){
+      const sh=pool.filter(i=>i.category==='Shoes');
+      if(sh.length)ids.push(sh[Math.floor(Math.random()*sh.length)].id);
+    }
+    ids=[...new Set(ids)];
+    const c2=ids.map(id=>itemById(id).category);
+    const wearable=(c2.includes('Dress'))||(c2.includes('Top')&&c2.includes('Bottom'));
+    if(ids.length>=2&&wearable){l.itemIds=ids;out.push(l);}
+  }
+  return out;
+}
 async function styleMe(){
   if(state.items.length<3){toast("Add a few more pieces first ("+state.items.length+"/3)");return;}
   const btn=$('styleBtn');btn.disabled=true;btn.innerHTML=`<span class="spinner"></span> &nbsp;Styling…`;$('looks').innerHTML="";
   const w=state.weather;
   const wnote=w?(" It is "+w.label.toLowerCase()+(w.temp!=null?(" ("+w.temp+"°C)"):"")+" today, so dress for the weather"+(w.bucket==='cold'?" with warm layers or outerwear":(w.bucket==='warm'?" and keep it light":""))+"."):"";
   let looks;try{looks=hasAI()?await aiStyle(state.items,state.occasion,wnote):localStyle(state.items,state.occasion,w);}catch(_){looks=localStyle(state.items,state.occasion,w);}
-  if(!looks||!looks.length)looks=localStyle(state.items,state.occasion,w);
+  looks=repairLooks(looks,state.items);
+  if(!looks||!looks.length)looks=repairLooks(localStyle(state.items,state.occasion,w),state.items);
   state.lastLooks=looks;renderLooks();
   btn.disabled=false;btn.textContent="Style me again";}
 function renderLooks(){const looks=state.lastLooks;if(!looks){$('looks').innerHTML="";return;}
