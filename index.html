@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-13-17 -->
+<title>Style Me</title><!-- build-marker: 2026-07-13-18 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -157,6 +157,14 @@
   .ch-ne{right:-13px;top:-13px;cursor:nesw-resize}
   .ch-sw{left:-13px;bottom:-13px;cursor:nesw-resize}
   .ch-se{right:-13px;bottom:-13px;cursor:nwse-resize}
+  .mcard{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:14px;margin-bottom:12px}
+  .mcard .mtop{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+  .mcard .mbrand{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .mcard .mprice{margin-left:auto;font-weight:700;font-size:14px;color:var(--wine)}
+  .mcard .mname{font-family:var(--font-head);font-size:16px;font-weight:600;line-height:1.25}
+  .mcard .mmeta{font-size:12px;color:var(--muted);margin-top:3px}
+  .yours{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--hair)}
+  .yours img{width:48px;height:60px;object-fit:contain;background:var(--look);border-radius:8px;padding:3px}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -226,14 +234,23 @@
     <section class="screen" id="v-style">
       <div class="eyebrow">Built from your pieces</div>
       <div class="h">Style me</div>
-      <div class="sub">Pick an occasion and get looks assembled from what you own.</div>
-      <div id="weather"></div>
-      <div id="trends"></div>
-      <div class="chips" id="occ"></div>
-      <div class="viewtoggle"><button class="vchip on" id="vFlat" onclick="setLayout('flat')">Flat-lay</button><button class="vchip" id="vRow" onclick="setLayout('row')">Pieces</button></div>
-      <button class="btn btn-primary" id="styleBtn" style="margin-top:6px">Style me</button>
-      <button class="btn btn-ghost" style="margin-top:10px" onclick="openBuild()">Build your own look</button>
-      <div id="looks" style="margin-top:20px"></div>
+      <div class="viewtoggle" style="margin-top:10px"><button class="vchip on" id="mCloset" onclick="setStyleMode('closet')">My closet</button><button class="vchip" id="mMarket" onclick="setStyleMode('market')">Match with the market</button></div>
+      <div id="closetMode">
+        <div class="sub">Pick an occasion and get looks assembled from what you own.</div>
+        <div id="weather"></div>
+        <div id="trends"></div>
+        <div class="chips" id="occ"></div>
+        <div class="viewtoggle"><button class="vchip on" id="vFlat" onclick="setLayout('flat')">Flat-lay</button><button class="vchip" id="vRow" onclick="setLayout('row')">Pieces</button></div>
+        <button class="btn btn-primary" id="styleBtn" style="margin-top:6px">Style me</button>
+        <button class="btn btn-ghost" style="margin-top:10px" onclick="openBuild()">Build your own look</button>
+        <div id="looks" style="margin-top:20px"></div>
+      </div>
+      <div id="marketMode" style="display:none">
+        <div class="sub">Choose pieces you own, and get real pieces to buy that complete them — with brand, model and price.</div>
+        <div id="marketPicker"></div>
+        <button class="btn btn-primary" id="marketBtn" style="margin-top:6px" onclick="findMarket()">Find matching pieces</button>
+        <div id="marketOut" style="margin-top:20px"></div>
+      </div>
     </section>
 
     <section class="screen" id="v-saved">
@@ -319,8 +336,8 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-17";
-const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0};
+const APP_VERSION="2026-07-13-18";
+const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
 
@@ -1154,6 +1171,47 @@ function renderTrends(){const el=$('trends');if(!el)return;const t=state.trends;
   if(t){el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends · ${t.date}</span><button class="wbtn" onclick="fetchTrendFeed(true)">Refresh</button></div><div class="ttext">${(t.text||'').replace(/</g,'&lt;')}</div></div>`;return;}
   el.innerHTML=`<div class="trends"><div class="th"><span class="tlab">Trends</span><button class="wbtn" onclick="fetchTrendFeed(true)">Check now</button></div><div class="ttext" style="color:var(--muted)">Current trends load automatically when available, and feed into “Style me”.</div></div>`;}
 
+/* ---- style mode: my closet vs match with the market ---- */
+function setStyleMode(m){state.styleMode=m;
+  $('mCloset').classList.toggle('on',m==='closet');$('mMarket').classList.toggle('on',m==='market');
+  $('closetMode').style.display=(m==='closet')?'block':'none';
+  $('marketMode').style.display=(m==='market')?'block':'none';
+  if(m==='market')renderMarketPicker();}
+function toggleMarket(id){state.marketIds=state.marketIds||[];const i=state.marketIds.indexOf(id);
+  if(i>=0)state.marketIds.splice(i,1);else state.marketIds.push(id);renderMarketPicker();}
+function renderMarketPicker(){const el=$('marketPicker');if(!el)return;state.marketIds=state.marketIds||[];
+  if(!state.items.length){el.innerHTML=`<div class="note" style="text-align:center;margin:20px 0">Add some pieces first.</div>`;return;}
+  const cats=CATS.filter(c=>state.items.some(i=>i.category===c));
+  el.innerHTML=`<div class="note" style="margin-bottom:10px">Selected: <b>${state.marketIds.length}</b> piece${state.marketIds.length===1?'':'s'}</div>`+
+    cats.map(c=>{const items=state.items.filter(i=>i.category===c);
+      return `<div class="bpgroup"><div class="bplabel">${c}</div><div class="bprow">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+async function aiMarket(pieces){
+  const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
+  const tb=(state.trends&&state.trends.text)?(' Current trends to respect: '+state.trends.text+'.'):'';
+  const desc=pieces.map(p=>[p.name,p.brand,p.subtype,p.color,p.formality,p.category].filter(Boolean).join(' · ')).join(' | ');
+  return await callAI('You are a personal shopper. The user already owns these pieces: '+desc+'.'+profileSummary()+tb+
+    ' Search the web for REAL garments currently on sale ('+month+') that would complete outfits with what they own. Propose 4 to 6 items, each a different category, from a range of price points. Only suggest items you actually found, with brand and product name as listed by the retailer. Reply with ONLY a JSON array, no markdown. Each: {name (product name), brand, category (Top, Bottom, Dress, Outerwear, Shoes, Purse or Accessory), price (as listed, with currency, or "" if unknown), retailer (shop name), url (product page if known, else ""), why (max 18 words: how it works with their pieces)}.',
+    2000,[{type:"web_search_20250305",name:"web_search",max_uses:6}]);}
+async function findMarket(){
+  state.marketIds=state.marketIds||[];
+  if(!hasAI()){toast("Turn on AI in Settings first");return;}
+  const pieces=state.marketIds.map(id=>itemById(id)).filter(Boolean);
+  if(!pieces.length){toast("Pick at least one piece first");return;}
+  const btn=$('marketBtn');btn.disabled=true;btn.innerHTML=`<span class="spinner"></span> &nbsp;Shopping the web…`;
+  $('marketOut').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Looking for pieces that match…</div>`;
+  let out=[];
+  try{const txt=await aiMarket(pieces);const arr=parseJSON(txt);if(Array.isArray(arr))out=arr;}catch(_){}
+  btn.disabled=false;btn.textContent="Find matching pieces";
+  if(!out.length){$('marketOut').innerHTML=`<div class="note" style="text-align:center;margin:18px 0">Nothing came back this time. Try again, or select different pieces.</div>`;return;}
+  $('marketOut').innerHTML=`<div class="yours">Completing: ${pieces.map(p=>`<img src="${p.photo}" alt="">`).join("")}</div>`+
+    out.map(s=>`<div class="mcard">
+      <div class="mtop"><span class="mbrand">${(s.brand||'').replace(/</g,'&lt;')}</span><span class="mprice">${(s.price||'').replace(/</g,'&lt;')}</span></div>
+      <div class="mname">${(s.name||'').replace(/</g,'&lt;')}</div>
+      <div class="mmeta">${(s.category||'')}${s.retailer?' · '+String(s.retailer).replace(/</g,'&lt;'):''}</div>
+      <div class="why" style="margin-top:8px">${(s.why||'').replace(/</g,'&lt;')}</div>
+      ${s.url?`<button class="mini" style="margin-top:10px" onclick="openExt('${String(s.url).replace(/'/g,"%27")}')">View at retailer</button>`:''}
+    </div>`).join("")+
+    `<div class="note" style="margin-top:14px;line-height:1.6">Prices and availability come from a web search and can be out of date — check on the retailer's site before buying.</div>`;}
 /* ---- manual outfit builder ---- */
 function openBuild(){if(!state.items.length){toast("Add some pieces first");return;}state.buildIds=[];renderBuild();$('buildSheet').classList.add('up');}
 function closeBuild(){$('buildSheet').classList.remove('up');}
