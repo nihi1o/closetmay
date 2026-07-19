@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-27 -->
+<title>Style Me</title><!-- build-marker: 2026-07-19-28 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -173,6 +173,9 @@
   .hidebtn:hover{opacity:.9}
   .hidebtn:active{transform:scale(.92)}
   .hidebtn.on{background:rgba(255,255,255,.75);color:#3a3a3a;opacity:.95}
+  .chip .cnt{display:inline-block;margin-left:6px;font-family:'Space Mono',monospace;font-size:9px;opacity:.6;vertical-align:1px}
+  .chip.on .cnt{opacity:.85}
+  .bplabel .cnt{font-family:'Space Mono',monospace;font-size:9px;opacity:.7}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -354,7 +357,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-27";
+const APP_VERSION="2026-07-19-28";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -481,7 +484,8 @@ function localStyle(items,occasion,weather){
 function itemById(id){return state.items.find(i=>i.id===id);}
 function refreshAIBadge(){const b=$('aiBadge');if(hasAI()){b.className="ai-tag ai-on";b.textContent="AI on";$('gear').classList.add('lit');}else{b.className="ai-tag ai-off";b.textContent="manual";$('gear').classList.remove('lit');}}
 function renderWardrobe(){
-  $('wfilter').innerHTML=["All",...CATS].map(c=>`<button class="chip ${state.filter===c?'on':''}" onclick="setFilter('${c}')">${c}</button>`).join("");
+  $('wfilter').innerHTML=["All",...CATS].map(c=>{const n=(c==="All")?state.items.length:state.items.filter(i=>i.category===c).length;
+    return `<button class="chip ${state.filter===c?'on':''}" data-cat="${c}" onclick="setFilter('${c}')">${c}<span class="cnt">${n}</span></button>`;}).join("");
   $('wcontrols').innerHTML=`
     <input id="wq" placeholder="Search brand, colour, type…" value="${(state.q||'').replace(/"/g,'&quot;')}" oninput="onSearch(this.value)">
     <select id="wseason" onchange="state.fseason=this.value;renderGrid()">${["All",...SEASONS].map(s=>`<option ${s===state.fseason?'selected':''}>${s}</option>`).join("")}</select>
@@ -563,7 +567,7 @@ function renderSaved(){const el=$('savedList');if(!state.saved.length){el.innerH
 /* ---- actions ---- */
 function go(v,btn){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('on'));$('v-'+v).classList.add('on');
   document.querySelectorAll('.nav button[data-v]').forEach(b=>b.classList.remove('on'));if(btn)btn.classList.add('on');$('scroll').scrollTop=0;if(v==='saved')renderSaved();if(v==='style'){renderWeather();renderTrends();}}
-function setFilter(c){state.filter=c;document.querySelectorAll('#wfilter .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));renderGrid();}
+function setFilter(c){state.filter=c;document.querySelectorAll('#wfilter .chip').forEach(b=>b.classList.toggle('on',b.dataset.cat===c));renderGrid();}
 function setOcc(o){state.occasion=o;renderOcc();}
 
 function newId(){return 'it_'+Date.now()+'_'+Math.floor(Math.random()*1e5);}
@@ -946,7 +950,7 @@ function renderSeedPicker(){const el=$('seedPanel');if(!el)return;state.seedIds=
   const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   el.innerHTML=`<div class="note" style="margin-bottom:8px">Style me will build every outfit around these — selected: <b>${state.seedIds.length}</b>${state.seedIds.length?` · <span class="link" onclick="clearSeeds()">clear</span>`:''}</div>`+
     cats.map(c=>{const items=vis.filter(i=>i.category===c);
-      return `<div class="bpgroup"><div class="bplabel">${c}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.seedIds.includes(i.id)?'on':''}" onclick="toggleSeed('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.seedIds.includes(i.id)?'on':''}" onclick="toggleSeed('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 function forceSeeds(l,seeds){
   let ids=(l.itemIds||[]).filter(id=>!!itemById(id));
   for(const sd of seeds){
@@ -1274,7 +1278,7 @@ function renderMarketPicker(){const el=$('marketPicker');if(!el)return;state.mar
   const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   el.innerHTML=`<div class="note" style="margin-bottom:10px">Selected: <b>${state.marketIds.length}</b> piece${state.marketIds.length===1?'':'s'}</div>`+
     cats.map(c=>{const items=vis.filter(i=>i.category===c);
-      return `<div class="bpgroup"><div class="bplabel">${c}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 async function aiMarket(pieces){
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' Current trends to respect: '+state.trends.text+'.'):'';
@@ -1315,7 +1319,7 @@ function renderBuild(){
   $('buildPreview').innerHTML=pcs.length?`<div class="look" style="margin-bottom:14px">${flatLayHTML(pcs)}</div>`:`<div class="note" style="text-align:center;margin:24px 0">Pick pieces below to compose a look.<br>Tops &amp; accessories can be layered.</div>`;
   const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   $('buildPicker').innerHTML=cats.map(c=>{const items=vis.filter(i=>i.category===c);
-    return `<div class="bpgroup"><div class="bplabel">${c}${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+    return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span>${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 async function saveBuilt(){const ids=state.buildIds.slice();if(ids.length<2){toast("Pick at least two pieces");return;}
   const l={name:"My outfit",trend:"Custom",itemIds:ids,why:"Hand-picked by you.",sid:'s_'+Date.now()+'_'+Math.floor(Math.random()*1e5)};
   state.saved.unshift(l);await idbPut('looks',l);closeBuild();renderSaved();go('saved',document.querySelector('.nav button[data-v="saved"]'));toast("Saved your look");}
