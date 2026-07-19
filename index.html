@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-25 -->
+<title>Style Me</title><!-- build-marker: 2026-07-19-26 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -350,9 +350,9 @@
 
 <script>
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
-const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
+const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-25";
+const APP_VERSION="2026-07-19-26";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -440,7 +440,7 @@ async function callAI(content,maxTokens,tools){
 function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
 async function aiTag(dataURL){const base64=dataURL.split(',')[1];const mt=/^data:(image\/[a-z]+)/i.exec(dataURL);const media=mt?mt[1]:'image/jpeg';
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:media,data:base64}},
-    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else "").'}],400);
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else ""). Use Jacket for lighter layering pieces worn indoors or in mild weather (blazer, denim/leather jacket, bomber, cardigan-style jacket) and Outerwear only for heavier outdoor coats (winter coat, parka, trench, raincoat, puffer).'}],400);
   return parseJSON(txt);}
 async function aiStyle(items,occasion,wnote){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
@@ -464,7 +464,7 @@ function localStyle(items,occasion,weather){
     if(ok)pool=f;}
   const cold=weather&&weather.bucket==='cold';
   const by=c=>pool.filter(i=>i.category===c);
-  const tops=by('Top'),bottoms=by('Bottom'),dresses=by('Dress'),shoes=by('Shoes'),outer=by('Outerwear'),acc=by('Accessory');
+  const tops=by('Top'),bottoms=by('Bottom'),dresses=by('Dress'),shoes=by('Shoes'),outer=[...by('Jacket'),...by('Outerwear')],acc=by('Accessory');
   const bases=[];dresses.forEach(d=>bases.push([d]));tops.forEach(t=>bottoms.forEach(b=>bases.push([t,b])));shuffle(bases);
   const looks=[];for(const base of bases){if(looks.length>=3)break;const ids=base.map(x=>x.id);let layered=false;
     if(base.length===2){const others=tops.filter(t=>t.id!==base[0].id&&(t.subtype||'').toLowerCase()!==(base[0].subtype||'').toLowerCase());if(others.length&&Math.random()<(cold?0.7:0.32)){ids.push(pick(others).id);layered=true;}}
@@ -512,6 +512,7 @@ function renderGrid(){const g=$('wgrid');
 function renderOcc(){$('occ').innerHTML=OCCASIONS.map(o=>`<button class="chip ${state.occasion===o?'on':''}" onclick="setOcc('${o}')">${o}</button>`).join("");}
 function flatLayHTML(pcs){
   const tops=pcs.filter(p=>p.category==='Top');
+  const jackets=pcs.filter(p=>p.category==='Jacket');
   const outers=pcs.filter(p=>p.category==='Outerwear');
   const dress=pcs.find(p=>p.category==='Dress');
   const bottom=pcs.find(p=>p.category==='Bottom');
@@ -521,11 +522,11 @@ function flatLayHTML(pcs){
   const slot=(p,style)=>p?`<div class="slot" style="${style}"><img src="${p.photo}" alt=""></div>`:'';
   let h='';
   if(dress){
-    const up=outers[0];
+    const up=outers[0]||jackets[0];
     if(up){h+=slot(up,'left:2%;top:3%;width:46%;height:60%;transform:rotate(-5deg)');h+=slot(dress,'right:3%;top:6%;width:50%;height:72%;transform:rotate(4deg)');}
     else h+=slot(dress,'left:23%;top:4%;width:54%;height:74%;transform:rotate(2deg)');
   }else{
-    const uppers=[...tops,...outers].slice(0,3);   // base layer -> outer, left to right
+    const uppers=[...tops,...jackets,...outers].slice(0,3);   // base layer -> outer, left to right
     if(uppers.length<=1){h+=slot(uppers[0],'left:22%;top:3%;width:56%;height:44%');}
     else if(uppers.length===2){h+=slot(uppers[0],'left:2%;top:2%;width:50%;height:46%;transform:rotate(-6deg)');h+=slot(uppers[1],'right:2%;top:6%;width:46%;height:42%;transform:rotate(6deg)');}
     else{h+=slot(uppers[0],'left:0%;top:6%;width:38%;height:40%;transform:rotate(-9deg)');h+=slot(uppers[1],'left:31%;top:1%;width:40%;height:44%;transform:rotate(0deg)');h+=slot(uppers[2],'right:0%;top:6%;width:38%;height:40%;transform:rotate(9deg)');}
@@ -568,7 +569,7 @@ function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
 async function aiDetectItems(dataURL){const base64=dataURL.split(',')[1];const mt=/^data:(image\/[a-z]+)/i.exec(dataURL);const media=mt?mt[1]:'image/jpeg';
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:media,data:base64}},
-    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, name (short descriptive title in English), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
+    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, name (short descriptive title in English), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
   const arr=parseJSON(txt);return Array.isArray(arr)?arr:[];}
 function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
   const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
@@ -626,7 +627,7 @@ async function viaProxy(url,asBlob){
 async function aiReadProduct(html){
   const head=(html.match(/<head[\s\S]*?<\/head>/i)||[''])[0];
   const snip=(head+html.replace(/<script[\s\S]*?<\/script>/gi,'')).slice(0,16000);
-  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: name (short descriptive title in English), brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
+  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: name (short descriptive title in English), brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
   return parseJSON(txt);
 }
 function startLink(){if(!hasAI()){toast("Turn on AI in Settings first");return;}
@@ -753,7 +754,7 @@ async function aiReadTag(dataURL,barcode){const _mt=/^data:(image\/[a-z]+)/i.exe
   const base64=dataURL.split(',')[1];
   const txt=await callAI([
     {type:"image",source:{type:"base64",media_type:_media,data:base64}},
-    {type:"text",text:'This is a photo of a clothing brand or care label'+(barcode?(' with barcode '+barcode):'')+'. Read what you can and reply with ONLY a JSON object, no markdown. Keys: brand (brand name if visible else ""), category (one of Top, Bottom, Dress, Outerwear, Shoes, Purse, Accessory, or ""), subtype (short, e.g. "merino crew knit", else ""), color (plain word or ""), formality (Casual, Smart, Formal or ""), material (e.g. "100% wool" or "").'}
+    {type:"text",text:'This is a photo of a clothing brand or care label'+(barcode?(' with barcode '+barcode):'')+'. Read what you can and reply with ONLY a JSON object, no markdown. Keys: brand (brand name if visible else ""), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory, or ""), subtype (short, e.g. "merino crew knit", else ""), color (plain word or ""), formality (Casual, Smart, Formal or ""), material (e.g. "100% wool" or "").'}
   ],400);
   return parseJSON(txt);
 }
@@ -780,7 +781,7 @@ function syncFields(){const p=state.pending;if(!p)return;if($('f-name'))p.name=$
 /* ---- touch-up editor ---- */
 /* ---- replace photo (keeps the description) ---- */
 /* ---- studio look / presentation size ---- */
-function bigCat(c){return c==='Top'||c==='Bottom'||c==='Dress'||c==='Outerwear';}
+function bigCat(c){return c==='Top'||c==='Bottom'||c==='Dress'||c==='Jacket'||c==='Outerwear';}
 function defFit(c){return bigCat(c)?100:82;}
 function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
   const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;if(!w||!h){res(src);return;}
@@ -1249,7 +1250,7 @@ async function aiMarket(pieces){
   const tb=(state.trends&&state.trends.text)?(' Current trends to respect: '+state.trends.text+'.'):'';
   const desc=pieces.map(p=>[p.name,p.brand,p.subtype,p.color,p.formality,p.category].filter(Boolean).join(' · ')).join(' | ');
   return await callAI('You are a personal shopper. The user already owns these pieces: '+desc+'.'+profileSummary()+tb+
-    ' Search the web for REAL garments currently on sale ('+month+') that would complete outfits with what they own. Propose 4 to 6 items, each a different category, from a range of price points. Only suggest items you actually found, with brand and product name as listed by the retailer. Reply with ONLY a JSON array, no markdown. Each: {name (product name), brand, category (Top, Bottom, Dress, Outerwear, Shoes, Purse or Accessory), price (as listed, with currency, or "" if unknown), retailer (shop name), url (product page if known, else ""), why (max 18 words: how it works with their pieces)}.',
+    ' Search the web for REAL garments currently on sale ('+month+') that would complete outfits with what they own. Propose 4 to 6 items, each a different category, from a range of price points. Only suggest items you actually found, with brand and product name as listed by the retailer. Reply with ONLY a JSON array, no markdown. Each: {name (product name), brand, category (Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse or Accessory), price (as listed, with currency, or "" if unknown), retailer (shop name), url (product page if known, else ""), why (max 18 words: how it works with their pieces)}.',
     2000,[{type:"web_search_20250305",name:"web_search",max_uses:6}]);}
 async function findMarket(){
   state.marketIds=state.marketIds||[];
