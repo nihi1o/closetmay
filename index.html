@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-13-22 -->
+<title>Style Me</title><!-- build-marker: 2026-07-13-23 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -169,7 +169,9 @@
   .yours img{width:48px;height:60px;object-fit:contain;background:var(--look);border-radius:8px;padding:3px}
   .item.ishidden img{opacity:.32;filter:grayscale(.6)}
   .item.ishidden::after{content:'';position:absolute;inset:0;background:var(--card);opacity:.45;pointer-events:none}
-  .hidepill{position:absolute;top:7px;left:7px;z-index:2;background:rgba(26,24,21,.78);color:#fff;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.05em;padding:3px 6px;border-radius:5px;text-transform:uppercase}
+  .hidebtn{position:absolute;top:6px;left:6px;z-index:3;width:28px;height:28px;border:none;border-radius:50%;background:rgba(255,255,255,.82);color:#111;font-size:13px;line-height:1;cursor:pointer;opacity:.75;padding:0;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+  .hidebtn:active{transform:scale(.92)}
+  .hidebtn.on{background:rgba(26,24,21,.85);color:#fff;opacity:1}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -349,7 +351,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-22";
+const APP_VERSION="2026-07-13-23";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -502,7 +504,7 @@ function renderGrid(){const g=$('wgrid');
     <div style="font-size:13px;line-height:1.6">Tap <b>Add</b> below and photograph your first piece.<br>Build it up a few items at a time.</div></div>`;return;}
   const list=filteredItems();
   if(!list.length){g.innerHTML=`<div class="empty"><div class="big" style="margin-top:24px">No pieces match</div><div style="font-size:13px">Try clearing the search or filters.</div></div>`;return;}
-  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item${i.hidden?' ishidden':''}" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt="">${i.hidden?'<span class="hidepill">hidden</span>':''}
+  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item${i.hidden?' ishidden':''}" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt=""><button class="hidebtn${i.hidden?' on':''}" title="${i.hidden?'Unhide':'Hide from styling'}" onclick="event.stopPropagation();quickHide('${i.id}')">${i.hidden?'👁':'🚫'}</button>
     <span class="dot" style="background:${i.colorHex||'#bbb'}"></span><span class="cat">${i.category}</span>
     <span class="lbl"><span class="lt">${i.name?i.name:((i.brand?i.brand+' · ':'')+(i.subtype||i.color||''))}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
     +`<button class="add-tile" onclick="startAdd()"><div><div class="p">+</div>Add</div></button></div>`;}
@@ -916,6 +918,10 @@ async function saveItem(){const p=state.pending;if(!p)return;
   toast(wasEdit?"Saved":"Added — "+state.items.length+" pieces");}
 function finishPile(){const n=state.pileCount||0;state.pile=false;state.pileCount=0;state.guided=false;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast(n?("Added "+n+(n>1?" pieces":" piece")):"Done");}
 function viewItem(id){const it=itemById(id);if(!it)return;state.batch=null;state.editingId=id;state.pending={...it};setAddTitle("Edit piece");openAdd();renderAddBody({});}
+async function quickHide(id){const it=itemById(id);if(!it)return;
+  it.hidden=!it.hidden;await idbPut('items',it);
+  if(state.pending&&state.pending.id===id)state.pending.hidden=it.hidden;
+  renderGrid();toast(it.hidden?"Hidden — left out of styling":"Visible again");}
 async function toggleHidden(){const p=state.pending;if(!p)return;syncFields();
   p.hidden=!p.hidden;await idbPut('items',p);
   const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]={...state.items[i],...p};
