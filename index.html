@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-13-21 -->
+<title>Style Me</title><!-- build-marker: 2026-07-13-22 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -349,7 +349,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-21";
+const APP_VERSION="2026-07-13-22";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -489,10 +489,12 @@ function filteredItems(){
   let list=state.items.filter(i=>{
     if(state.filter!=="All"&&i.category!==state.filter)return false;
     if(state.fseason!=="All"){const s=i.season||"Any";if(s!=="Any"&&s!==state.fseason)return false;}
-    if(q){const hay=[(i.brand||''),(i.color||''),(i.subtype||''),(i.category||'')].join(' ').toLowerCase();if(!hay.includes(q))return false;}
+    if(q){const hay=[(i.name||''),(i.brand||''),(i.color||''),(i.subtype||''),(i.category||'')].join(' ').toLowerCase();if(!hay.includes(q))return false;}
     return true;
   });
   if(state.sort==='least')list=list.slice().sort((a,b)=>(a.wornCount||0)-(b.wornCount||0));
+  // keep hidden pieces grouped at the end of the grid
+  list=[...list.filter(i=>!i.hidden),...list.filter(i=>i.hidden)];
   return list;
 }
 function renderGrid(){const g=$('wgrid');
