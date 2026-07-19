@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-13-20 -->
+<title>Style Me</title><!-- build-marker: 2026-07-13-21 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -167,6 +167,9 @@
   .mcard .mmeta{font-size:12px;color:var(--muted);margin-top:3px}
   .yours{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--hair)}
   .yours img{width:48px;height:60px;object-fit:contain;background:var(--look);border-radius:8px;padding:3px}
+  .item.ishidden img{opacity:.32;filter:grayscale(.6)}
+  .item.ishidden::after{content:'';position:absolute;inset:0;background:var(--card);opacity:.45;pointer-events:none}
+  .hidepill{position:absolute;top:7px;left:7px;z-index:2;background:rgba(26,24,21,.78);color:#fff;font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.05em;padding:3px 6px;border-radius:5px;text-transform:uppercase}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -346,7 +349,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-13-20";
+const APP_VERSION="2026-07-13-21";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -497,7 +500,7 @@ function renderGrid(){const g=$('wgrid');
     <div style="font-size:13px;line-height:1.6">Tap <b>Add</b> below and photograph your first piece.<br>Build it up a few items at a time.</div></div>`;return;}
   const list=filteredItems();
   if(!list.length){g.innerHTML=`<div class="empty"><div class="big" style="margin-top:24px">No pieces match</div><div style="font-size:13px">Try clearing the search or filters.</div></div>`;return;}
-  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt="">
+  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item${i.hidden?' ishidden':''}" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt="">${i.hidden?'<span class="hidepill">hidden</span>':''}
     <span class="dot" style="background:${i.colorHex||'#bbb'}"></span><span class="cat">${i.category}</span>
     <span class="lbl"><span class="lt">${i.name?i.name:((i.brand?i.brand+' · ':'')+(i.subtype||i.color||''))}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
     +`<button class="add-tile" onclick="startAdd()"><div><div class="p">+</div>Add</div></button></div>`;}
@@ -727,6 +730,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
     <button class="btn btn-primary" onclick="saveItem()">${primary}</button>
     ${inBatch?`<button class="mini" style="margin-top:10px" onclick="skipBatch()">Skip this one</button>`:``}
     ${inPile?`<button class="mini" style="margin-top:10px" onclick="finishPile()">Done — finish pile (${state.pileCount})</button>`:``}
+    ${editing?`<button class="mini" style="margin-top:10px" onclick="toggleHidden()">${p.hidden?'👁 Unhide — use in styling again':'🚫 Hide — leave out of styling'}</button>`:``}
     ${editing?`<button class="mini" style="margin-top:10px;color:var(--wine);border-color:var(--wine)" onclick="deleteCurrent()">Delete this piece</button>`:``}`;}
 function setPendingCat(c){state.pending.category=c;document.querySelectorAll('#catRow .chip').forEach(b=>b.classList.toggle('on',b.textContent===c));}
 
@@ -910,6 +914,10 @@ async function saveItem(){const p=state.pending;if(!p)return;
   toast(wasEdit?"Saved":"Added — "+state.items.length+" pieces");}
 function finishPile(){const n=state.pileCount||0;state.pile=false;state.pileCount=0;state.guided=false;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast(n?("Added "+n+(n>1?" pieces":" piece")):"Done");}
 function viewItem(id){const it=itemById(id);if(!it)return;state.batch=null;state.editingId=id;state.pending={...it};setAddTitle("Edit piece");openAdd();renderAddBody({});}
+async function toggleHidden(){const p=state.pending;if(!p)return;syncFields();
+  p.hidden=!p.hidden;await idbPut('items',p);
+  const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]={...state.items[i],...p};
+  renderAddBody({});renderGrid();toast(p.hidden?"Hidden — left out of styling":"Visible again");}
 async function deleteCurrent(){const p=state.pending;if(!p)return;if(!confirm("Remove this piece?"))return;await idbDel('items',p.id);state.items=state.items.filter(x=>x.id!==p.id);closeAdd();renderWardrobe();toast("Removed");}
 
 function repairLooks(looks,pool){
@@ -944,9 +952,11 @@ async function styleMe(){
   const btn=$('styleBtn');btn.disabled=true;btn.innerHTML=`<span class="spinner"></span> &nbsp;Styling…`;$('looks').innerHTML="";
   const w=state.weather;
   const wnote=w?(" It is "+w.label.toLowerCase()+(w.temp!=null?(" ("+w.temp+"°C)"):"")+" today, so dress for the weather"+(w.bucket==='cold'?" with warm layers or outerwear":(w.bucket==='warm'?" and keep it light":""))+"."):"";
-  let looks;try{looks=hasAI()?await aiStyle(state.items,state.occasion,wnote):localStyle(state.items,state.occasion,w);}catch(_){looks=localStyle(state.items,state.occasion,w);}
-  looks=repairLooks(looks,state.items);
-  if(!looks||!looks.length)looks=repairLooks(localStyle(state.items,state.occasion,w),state.items);
+  const pool=state.items.filter(i=>!i.hidden);
+  if(pool.length<3){toast("Too many pieces are hidden — unhide a few");btn.disabled=false;btn.textContent="Style me";return;}
+  let looks;try{looks=hasAI()?await aiStyle(pool,state.occasion,wnote):localStyle(pool,state.occasion,w);}catch(_){looks=localStyle(pool,state.occasion,w);}
+  looks=repairLooks(looks,pool);
+  if(!looks||!looks.length)looks=repairLooks(localStyle(pool,state.occasion,w),pool);
   state.lastLooks=looks;renderLooks();
   btn.disabled=false;btn.textContent="Style me again";}
 function renderLooks(){const looks=state.lastLooks;if(!looks){$('looks').innerHTML="";return;}
@@ -1219,9 +1229,9 @@ function toggleMarket(id){state.marketIds=state.marketIds||[];const i=state.mark
   if(i>=0)state.marketIds.splice(i,1);else state.marketIds.push(id);renderMarketPicker();}
 function renderMarketPicker(){const el=$('marketPicker');if(!el)return;state.marketIds=state.marketIds||[];
   if(!state.items.length){el.innerHTML=`<div class="note" style="text-align:center;margin:20px 0">Add some pieces first.</div>`;return;}
-  const cats=CATS.filter(c=>state.items.some(i=>i.category===c));
+  const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   el.innerHTML=`<div class="note" style="margin-bottom:10px">Selected: <b>${state.marketIds.length}</b> piece${state.marketIds.length===1?'':'s'}</div>`+
-    cats.map(c=>{const items=state.items.filter(i=>i.category===c);
+    cats.map(c=>{const items=vis.filter(i=>i.category===c);
       return `<div class="bpgroup"><div class="bplabel">${c}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 async function aiMarket(pieces){
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
@@ -1261,8 +1271,8 @@ function toggleBuild(id){const it=itemById(id);if(!it)return;const c=it.category
 function renderBuild(){
   const pcs=state.buildIds.map(id=>itemById(id)).filter(Boolean);
   $('buildPreview').innerHTML=pcs.length?`<div class="look" style="margin-bottom:14px">${flatLayHTML(pcs)}</div>`:`<div class="note" style="text-align:center;margin:24px 0">Pick pieces below to compose a look.<br>Tops &amp; accessories can be layered.</div>`;
-  const cats=CATS.filter(c=>state.items.some(i=>i.category===c));
-  $('buildPicker').innerHTML=cats.map(c=>{const items=state.items.filter(i=>i.category===c);
+  const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
+  $('buildPicker').innerHTML=cats.map(c=>{const items=vis.filter(i=>i.category===c);
     return `<div class="bpgroup"><div class="bplabel">${c}${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bprow">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 async function saveBuilt(){const ids=state.buildIds.slice();if(ids.length<2){toast("Pick at least two pieces");return;}
   const l={name:"My outfit",trend:"Custom",itemIds:ids,why:"Hand-picked by you.",sid:'s_'+Date.now()+'_'+Math.floor(Math.random()*1e5)};
