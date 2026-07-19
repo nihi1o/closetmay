@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-26 -->
+<title>Style Me</title><!-- build-marker: 2026-07-19-27 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -257,6 +257,8 @@
         <div id="trends"></div>
         <div class="chips" id="occ"></div>
         <div class="viewtoggle"><button class="vchip on" id="vFlat" onclick="setLayout('flat')">Flat-lay</button><button class="vchip" id="vRow" onclick="setLayout('row')">Pieces</button></div>
+        <button class="mini" style="width:auto;padding:8px 14px;margin-bottom:10px" onclick="toggleSeeds()" id="seedToggle">＋ Start from pieces I choose</button>
+        <div id="seedPanel" style="display:none;margin-bottom:14px"></div>
         <button class="btn btn-primary" id="styleBtn" style="margin-top:6px">Style me</button>
         <button class="btn btn-ghost" style="margin-top:10px" onclick="openBuild()">Build your own look</button>
         <div id="looks" style="margin-top:20px"></div>
@@ -352,8 +354,8 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-26";
-const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[]};
+const APP_VERSION="2026-07-19-27";
+const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
 
@@ -442,12 +444,12 @@ async function aiTag(dataURL){const base64=dataURL.split(',')[1];const mt=/^data
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:media,data:base64}},
     {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else ""). Use Jacket for lighter layering pieces worn indoors or in mild weather (blazer, denim/leather jacket, bomber, cardigan-style jacket) and Outerwear only for heavier outdoor coats (winter coat, parka, trench, raincoat, puffer).'}],400);
   return parseJSON(txt);}
-async function aiStyle(items,occasion,wnote){
+async function aiStyle(items,occasion,wnote,seeds){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' It is '+month+'. Channel these CURRENT real-world fashion trends where they suit the pieces and occasion: '+state.trends.text+'.'):(' It is '+month+', so keep trends season-appropriate.');
   const rules=' Avoid common styling mistakes: never combine two of the same base layer in one outfit (e.g. two T-shirts); keep formality coherent across every piece (do not pair smart items like a belt or blazer with athletic pieces like sweatpants or joggers); never put sportswear or athleisure — sweatpants, joggers, gym wear, football or sports jerseys — into dressy occasions such as Dinner or Evening. Every outfit must be coherent in formality and appropriate to the occasion.';
-  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. Every outfit MUST be complete and wearable: either a Dress, or a Top AND a Bottom together (a Bottom alone is never acceptable). Add Shoes, and optionally Outerwear, a Purse and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
+  const txt=await callAI('You are a personal stylist. Using ONLY items from this wardrobe, build 3 distinct outfits for the occasion "'+occasion+'", each inspired by a current fashion trend. Every outfit MUST be complete and wearable: either a Dress, or a Top AND a Bottom together (a Bottom alone is never acceptable). Add Shoes, and optionally Outerwear, a Purse and/or an Accessory — pieces that genuinely work by colour and formality. Where it suits the look or the weather, LAYER pieces sensibly: an outfit may include two upper layers (e.g. a tee or shirt under a knit, or a jacket over a top) — so itemIds can contain more than one Top, or a Top plus Outerwear, but the layers must be different kinds of garment. Make at least one of the three outfits a layered look when the wardrobe allows.'+rules+profileSummary()+tb+(wnote||'')+tasteSummary()+((seeds&&seeds.length)?(' EVERY outfit MUST include these exact pieces (use their ids): '+seeds.map(x=>x.id+' ('+[x.name,x.subtype,x.color,x.category].filter(Boolean).join(' ')+')').join('; ')+'. Build the rest of each outfit around them.'):'')+' Name each outfit'+"'"+'s trend to match the current trends above. Reply with ONLY a JSON array, no markdown. Each: {name (short, evocative), trend (e.g. "Quiet luxury"), itemIds (array of ids from the list), why (max 16 words)}. Wardrobe: '+JSON.stringify(list),1000);
   return parseJSON(txt);}
 
 /* ---- local fallback styler ---- */
@@ -932,6 +934,31 @@ async function toggleHidden(){const p=state.pending;if(!p)return;syncFields();
   renderAddBody({});renderGrid();toast(p.hidden?"Hidden — left out of styling":"Visible again");}
 async function deleteCurrent(){const p=state.pending;if(!p)return;if(!confirm("Remove this piece?"))return;await idbDel('items',p.id);state.items=state.items.filter(x=>x.id!==p.id);closeAdd();renderWardrobe();toast("Removed");}
 
+function toggleSeeds(){state.seedOpen=!state.seedOpen;$('seedPanel').style.display=state.seedOpen?'block':'none';
+  $('seedToggle').textContent=state.seedOpen?'－ Hide piece picker':'＋ Start from pieces I choose';
+  if(state.seedOpen)renderSeedPicker();}
+function toggleSeed(id){state.seedIds=state.seedIds||[];const i=state.seedIds.indexOf(id);
+  if(i>=0)state.seedIds.splice(i,1);else state.seedIds.push(id);renderSeedPicker();}
+function clearSeeds(){state.seedIds=[];renderSeedPicker();}
+function renderSeedPicker(){const el=$('seedPanel');if(!el)return;state.seedIds=state.seedIds||[];
+  const vis=state.items.filter(i=>!i.hidden);
+  if(!vis.length){el.innerHTML=`<div class="note">Add some pieces first.</div>`;return;}
+  const cats=CATS.filter(c=>vis.some(i=>i.category===c));
+  el.innerHTML=`<div class="note" style="margin-bottom:8px">Style me will build every outfit around these — selected: <b>${state.seedIds.length}</b>${state.seedIds.length?` · <span class="link" onclick="clearSeeds()">clear</span>`:''}</div>`+
+    cats.map(c=>{const items=vis.filter(i=>i.category===c);
+      return `<div class="bpgroup"><div class="bplabel">${c}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.seedIds.includes(i.id)?'on':''}" onclick="toggleSeed('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+function forceSeeds(l,seeds){
+  let ids=(l.itemIds||[]).filter(id=>!!itemById(id));
+  for(const sd of seeds){
+    const layerable=(sd.category==='Top'||sd.category==='Accessory');
+    if(!layerable)ids=ids.filter(id=>{const it=itemById(id);return !it||it.category!==sd.category;});
+    if(!ids.includes(sd.id))ids.unshift(sd.id);
+  }
+  // a dress and a bottom can't co-exist
+  const hasDress=ids.some(id=>itemById(id)&&itemById(id).category==='Dress');
+  const seedHasBottom=seeds.some(x=>x.category==='Bottom'||x.category==='Top');
+  if(hasDress&&seedHasBottom)ids=ids.filter(id=>itemById(id).category!=='Dress');
+  l.itemIds=[...new Set(ids)];return l;}
 function repairLooks(looks,pool){
   const out=[];
   for(const l of (looks||[])){
@@ -966,9 +993,12 @@ async function styleMe(){
   const wnote=w?(" It is "+w.label.toLowerCase()+(w.temp!=null?(" ("+w.temp+"°C)"):"")+" today, so dress for the weather"+(w.bucket==='cold'?" with warm layers or outerwear":(w.bucket==='warm'?" and keep it light":""))+"."):"";
   const pool=state.items.filter(i=>!i.hidden);
   if(pool.length<3){toast("Too many pieces are hidden — unhide a few");btn.disabled=false;btn.textContent="Style me";return;}
-  let looks;try{looks=hasAI()?await aiStyle(pool,state.occasion,wnote):localStyle(pool,state.occasion,w);}catch(_){looks=localStyle(pool,state.occasion,w);}
+  const seeds=(state.seedIds||[]).map(id=>itemById(id)).filter(Boolean).filter(i=>!i.hidden);
+  let looks;try{looks=hasAI()?await aiStyle(pool,state.occasion,wnote,seeds):localStyle(pool,state.occasion,w);}catch(_){looks=localStyle(pool,state.occasion,w);}
+  if(seeds.length)looks=(looks||[]).map(l=>forceSeeds(l,seeds));
   looks=repairLooks(looks,pool);
-  if(!looks||!looks.length)looks=repairLooks(localStyle(pool,state.occasion,w),pool);
+  if(seeds.length)looks=looks.map(l=>forceSeeds(l,seeds));
+  if(!looks||!looks.length){let f=repairLooks(localStyle(pool,state.occasion,w),pool);if(seeds.length)f=f.map(l=>forceSeeds(l,seeds));looks=f;}
   state.lastLooks=looks;renderLooks();
   btn.disabled=false;btn.textContent="Style me again";}
 function renderLooks(){const looks=state.lastLooks;if(!looks){$('looks').innerHTML="";return;}
@@ -1285,7 +1315,7 @@ function renderBuild(){
   $('buildPreview').innerHTML=pcs.length?`<div class="look" style="margin-bottom:14px">${flatLayHTML(pcs)}</div>`:`<div class="note" style="text-align:center;margin:24px 0">Pick pieces below to compose a look.<br>Tops &amp; accessories can be layered.</div>`;
   const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   $('buildPicker').innerHTML=cats.map(c=>{const items=vis.filter(i=>i.category===c);
-    return `<div class="bpgroup"><div class="bplabel">${c}${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bprow">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+    return `<div class="bpgroup"><div class="bplabel">${c}${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
 async function saveBuilt(){const ids=state.buildIds.slice();if(ids.length<2){toast("Pick at least two pieces");return;}
   const l={name:"My outfit",trend:"Custom",itemIds:ids,why:"Hand-picked by you.",sid:'s_'+Date.now()+'_'+Math.floor(Math.random()*1e5)};
   state.saved.unshift(l);await idbPut('looks',l);closeBuild();renderSaved();go('saved',document.querySelector('.nav button[data-v="saved"]'));toast("Saved your look");}
