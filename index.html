@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-28 -->
+<title>Style Me</title><!-- build-marker: 2026-07-19-29 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -176,6 +176,10 @@
   .chip .cnt{display:inline-block;margin-left:6px;font-family:'Space Mono',monospace;font-size:9px;opacity:.6;vertical-align:1px}
   .chip.on .cnt{opacity:.85}
   .bplabel .cnt{font-family:'Space Mono',monospace;font-size:9px;opacity:.7}
+  .reasons{margin-top:12px;padding-top:12px;border-top:1px solid var(--hair)}
+  .reasons .rlab{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .rchip{border:1px solid var(--hair);background:transparent;color:var(--ink);border-radius:16px;padding:6px 11px;font-size:12px;font-family:inherit;cursor:pointer}
+  .rchip.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -357,7 +361,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-28";
+const APP_VERSION="2026-07-19-29";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -1028,15 +1032,48 @@ function toggleStyle(s){const i=profile.styles.indexOf(s);if(i>=0)profile.styles
 function sigOf(l){return (l.itemIds||[]).slice().sort().join(',')+'|'+(l.trend||'');}
 function descOf(l){const pcs=(l.itemIds||[]).map(id=>itemById(id)).filter(Boolean);return (l.trend?l.trend+': ':'')+pcs.map(p=>p.color||p.subtype||p.category).join(', ');}
 function ratingOf(sig){if(taste.likes.some(x=>x.sig===sig))return 'like';if(taste.dislikes.some(x=>x.sig===sig))return 'dislike';return null;}
-function tasteSummary(){const L=taste.likes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');const D=taste.dislikes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');let s='';if(L)s+=' The user tends to LIKE looks like: '+L+'.';if(D)s+=' The user tends to DISLIKE: '+D+'.';if(s)s+=' Lean toward their taste.';return s;}
+function reasonTally(arr){const m={};arr.forEach(x=>(x.reasons||[]).forEach(r=>{m[r]=(m[r]||0)+1;}));
+  return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([r,n])=>r.toLowerCase()+(n>1?(' ('+n+'×)'):'')).join(', ');}
+function tasteSummary(){
+  const L=taste.likes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');
+  const D=taste.dislikes.slice(0,12).map(x=>x.desc).filter(Boolean).join(' / ');
+  const LR=reasonTally(taste.likes),DR=reasonTally(taste.dislikes);
+  let s='';
+  if(L)s+=' The user tends to LIKE looks like: '+L+'.';
+  if(LR)s+=' They said these worked: '+LR+' — keep doing that.';
+  if(D)s+=' The user tends to DISLIKE: '+D+'.';
+  if(DR)s+=' They rejected looks for these reasons: '+DR+'. Treat these as rules and do NOT repeat those mistakes.';
+  if(s)s+=' Lean toward their taste.';
+  return s;}
 function findSaved(sig){return state.saved.find(s=>sigOf(s)===sig);}
 
+const LIKE_REASONS=["Colours work together","Right level of formality","Good proportions","Feels like me","Nice layering","On trend"];
+const DISLIKE_REASONS=["Colours clash","Too formal","Too casual","Bad proportions","Too many layers","Not my style","Wrong for the season","I never wear this piece"];
+function entryOf(sig){return taste.likes.find(x=>x.sig===sig)||taste.dislikes.find(x=>x.sig===sig)||null;}
 async function rateLook(btn,val){const l=getLook(btn);if(!l)return;const sig=sigOf(l),prev=ratingOf(sig);
+  const card=btn.closest('.look');
   taste.likes=taste.likes.filter(x=>x.sig!==sig);taste.dislikes=taste.dislikes.filter(x=>x.sig!==sig);
-  if(prev!==val){(val==='like'?taste.likes:taste.dislikes).unshift({sig,desc:descOf(l)});}
+  const cleared=(prev===val);
+  if(!cleared){(val==='like'?taste.likes:taste.dislikes).unshift({sig,desc:descOf(l),reasons:[]});}
   taste.likes=taste.likes.slice(0,40);taste.dislikes=taste.dislikes.slice(0,40);saveTaste();
-  renderLooks();renderSaved();
-  toast(prev===val?"Cleared":(val==='like'?"Noted — more like this":"Noted — less of this"));}
+  if(card){const bs=card.querySelectorAll('.la');
+    if(bs[0])bs[0].classList.toggle('on',!cleared&&val==='like');
+    if(bs[1])bs[1].classList.toggle('on',!cleared&&val==='dislike');
+    const old=card.querySelector('.reasons');if(old)old.remove();
+    if(!cleared)card.querySelector('.body').insertAdjacentHTML('beforeend',reasonsHTML(sig,val));
+  }else{renderLooks();}
+  toast(cleared?"Cleared":(val==='like'?"Noted — tell me why?":"Noted — what was wrong?"));}
+function reasonsHTML(sig,val){const list=(val==='like')?LIKE_REASONS:DISLIKE_REASONS;const e=entryOf(sig)||{reasons:[]};
+  return `<div class="reasons" data-sig="${encodeURIComponent(sig)}" data-val="${val}">
+    <div class="rlab">${val==='like'?'What worked?':'What was wrong?'} <span style="opacity:.6">(optional — helps future suggestions)</span></div>
+    <div class="chiprow">${list.map(r=>`<button class="rchip ${(e.reasons||[]).includes(r)?'on':''}" onclick="toggleReason(this,'${r.replace(/'/g,"\\'")}')">${r}</button>`).join("")}</div>
+    <button class="mini" style="margin-top:10px" onclick="closeReasons(this)">Done</button></div>`;}
+function toggleReason(btn,r){const box=btn.closest('.reasons');if(!box)return;
+  const sig=decodeURIComponent(box.getAttribute('data-sig'));const e=entryOf(sig);if(!e)return;
+  e.reasons=e.reasons||[];const i=e.reasons.indexOf(r);
+  if(i>=0)e.reasons.splice(i,1);else e.reasons.push(r);
+  saveTaste();btn.classList.toggle('on',e.reasons.includes(r));}
+function closeReasons(btn){const box=btn.closest('.reasons');if(box)box.remove();toast("Thanks — noted");}
 
 async function wearLook(btn){const l=getLook(btn);if(!l)return;const today=new Date().toISOString().slice(0,10);let n=0;
   for(const id of (l.itemIds||[])){const it=itemById(id);if(it){it.wornCount=(it.wornCount||0)+1;it.lastWorn=today;await idbPut('items',it);n++;}}
