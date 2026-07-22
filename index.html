@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-29 -->
+<title>Style Me</title><!-- build-marker: 2026-07-19-32 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -180,6 +180,7 @@
   .reasons .rlab{font-size:12px;color:var(--muted);margin-bottom:8px}
   .rchip{border:1px solid var(--hair);background:transparent;color:var(--ink);border-radius:16px;padding:6px 11px;font-size:12px;font-family:inherit;cursor:pointer}
   .rchip.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
+  .fitval{flex:0 0 auto;min-width:88px;text-align:right;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -361,7 +362,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-29";
+const APP_VERSION="2026-07-19-32";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -730,7 +731,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
       <button class="mini" style="flex:1" onclick="syncFields();undoCut()">↩︎ Undo cut-out</button>
       <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut background</button>
     </div>
-    <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" onchange="fitPending(+this.value)"></div>
+    <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" oninput="fitLabel(this.value)" onchange="fitPending(+this.value)"><span class="fitval" id="fitVal">${fitText(p.fit||defFit(cat))}</span></div>
     ${!hasAI()?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">AI is off — fields won't auto-fill. Add your key in Settings (gear) to auto-tag.</div>`:``}
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">Couldn't auto-tag this one. Check your key with “Test key” in Settings, or fill it below.</div>`:``}
     ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
@@ -810,6 +811,8 @@ function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image(
   o.drawImage(t,minX,minY,cw,ch,dx,dy,dw,dh);
   res(out.toDataURL('image/png'));
 };img.onerror=rej;img.src=src;});}
+function fitText(v){v=+v;return v>=100?'full size':(v+'% · −'+(100-v)+'%');}
+function fitLabel(v){const e=$('fitVal');if(e)e.textContent=fitText(v);}
 async function fitPending(pct){const p=state.pending;if(!p)return;
   renderAddBody({loading:true});
   try{p.photo=await frameItem(p.cut||p.photo,pct/100);p.fit=pct;p.studio=true;}catch(_){}
