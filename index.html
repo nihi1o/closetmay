@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-19-32 -->
+<title>Style Me</title><!-- build-marker: 2026-07-26-33 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -181,6 +181,15 @@
   .rchip{border:1px solid var(--hair);background:transparent;color:var(--ink);border-radius:16px;padding:6px 11px;font-size:12px;font-family:inherit;cursor:pointer}
   .rchip.on{background:var(--sel-bg);color:var(--sel-fg);border-color:var(--sel-bg)}
   .fitval{flex:0 0 auto;min-width:88px;text-align:right;font-family:'Space Mono',monospace;font-size:11px;color:var(--muted)}
+  .nudge{display:flex;align-items:center;gap:10px;background:var(--look);border:1px solid var(--hair);border-radius:13px;padding:10px 13px;margin-bottom:14px;font-size:12.5px;color:var(--ink)}
+  .nudge .wbtn{margin-left:auto;border:1px solid var(--hair);background:var(--card);border-radius:9px;padding:7px 11px;font-size:12px;font-weight:600;font-family:inherit;color:var(--ink);cursor:pointer;white-space:nowrap}
+  .item{transition:transform .12s ease}.item:active{transform:scale(.97)}
+  .chip,.mini,.btn,.la,.wbtn,.rchip{transition:transform .1s ease,background .15s ease}
+  .chip:active,.la:active,.rchip:active{transform:scale(.94)}
+  .btn:active{transform:scale(.985)}
+  .grid .item{animation:tileIn .18s ease both}
+  @keyframes tileIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .look{animation:tileIn .2s ease both}
   .envwarn{background:#b3261e;color:#fff;font-size:12.5px;line-height:1.5;padding:10px 16px;text-align:center;flex:0 0 auto}
   .closetbar{padding:6px 18px 10px;display:flex;align-items:center;gap:8px;flex:0 0 auto}
   .closetlabel{font-size:15px;flex:0 0 auto}
@@ -250,6 +259,7 @@
       <div class="h">Wardrobe<span class="ai-tag ai-off" id="aiBadge">manual</span></div>
       <div class="sub">Photograph each piece — the background is cut out automatically, on your phone. Everything stays on your device.</div>
       <button class="mini" style="width:auto;padding:8px 14px;margin-bottom:14px" onclick="openStats()">📊 Wardrobe stats</button>
+      <div class="nudge" id="backupNudge" style="display:none"></div>
       <div class="chips" id="wfilter"></div>
       <div class="wcontrols" id="wcontrols"></div>
       <div id="wgrid"></div>
@@ -351,9 +361,9 @@
       </div>
     </div>
   </div>
-  <input type="file" accept="application/json" id="importInput" style="display:none">
-  <input type="file" accept="application/json" id="importClosetInput" style="display:none">
-  <input type="file" accept="application/json" id="importAllInput" style="display:none">
+  <input type="file" accept=".json,.gz,application/json,application/gzip" id="importInput" style="display:none">
+  <input type="file" accept=".json,.gz,application/json,application/gzip" id="importClosetInput" style="display:none">
+  <input type="file" accept=".json,.gz,application/json,application/gzip" id="importAllInput" style="display:none">
   <input type="file" accept="image/*" capture="environment" id="tagInput" style="display:none">
   <div class="toast" id="toast"></div>
 </div>
@@ -362,7 +372,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-19-32";
+const APP_VERSION="2026-07-26-33";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -488,7 +498,7 @@ function localStyle(items,occasion,weather){
 /* ---- render ---- */
 function itemById(id){return state.items.find(i=>i.id===id);}
 function refreshAIBadge(){const b=$('aiBadge');if(hasAI()){b.className="ai-tag ai-on";b.textContent="AI on";$('gear').classList.add('lit');}else{b.className="ai-tag ai-off";b.textContent="manual";$('gear').classList.remove('lit');}}
-function renderWardrobe(){
+function renderWardrobe(){renderBackupNudge();
   $('wfilter').innerHTML=["All",...CATS].map(c=>{const n=(c==="All")?state.items.length:state.items.filter(i=>i.category===c).length;
     return `<button class="chip ${state.filter===c?'on':''}" data-cat="${c}" onclick="setFilter('${c}')">${c}<span class="cnt">${n}</span></button>`;}).join("");
   $('wcontrols').innerHTML=`
@@ -516,7 +526,7 @@ function renderGrid(){const g=$('wgrid');
     <div style="font-size:13px;line-height:1.6">Tap <b>Add</b> below and photograph your first piece.<br>Build it up a few items at a time.</div></div>`;return;}
   const list=filteredItems();
   if(!list.length){g.innerHTML=`<div class="empty"><div class="big" style="margin-top:24px">No pieces match</div><div style="font-size:13px">Try clearing the search or filters.</div></div>`;return;}
-  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item${i.hidden?' ishidden':''}" onclick="viewItem('${i.id}')"><img src="${i.photo}" alt=""><button class="hidebtn${i.hidden?' on':''}" title="${i.hidden?'Unhide':'Hide from styling'}" onclick="event.stopPropagation();quickHide('${i.id}')">${i.hidden?EYE_OFF:EYE}</button>
+  g.innerHTML=`<div class="grid">`+list.map(i=>{const wc=i.wornCount||0;return `<div class="item${i.hidden?' ishidden':''}" onclick="viewItem('${i.id}')"><img src="${i.thumb||i.photo}" alt="" loading="lazy"><button class="hidebtn${i.hidden?' on':''}" title="${i.hidden?'Unhide':'Hide from styling'}" onclick="event.stopPropagation();quickHide('${i.id}')">${i.hidden?EYE_OFF:EYE}</button>
     <span class="dot" style="background:${i.colorHex||'#bbb'}"></span><span class="cat">${i.category}</span>
     <span class="lbl"><span class="lt">${i.name?i.name:((i.brand?i.brand+' · ':'')+(i.subtype||i.color||''))}</span>${wc>0?`<span class="lw">${wc}×</span>`:''}</span></div>`;}).join("")
     +`<button class="add-tile" onclick="startAdd()"><div><div class="p">+</div>Add</div></button></div>`;}
@@ -615,7 +625,15 @@ $('flatInput').addEventListener('change',async e=>{
     }
   }
   if(!all.length){$('addBody').innerHTML=`<div class="note" style="text-align:center;margin:24px 0">No separate pieces found. Lay clothes flat and apart, plain floor, good light, shoot from above.</div><button class="btn btn-ghost" onclick="renderChooser();setAddTitle('Add pieces')">Back</button>`;return;}
-  state.batch=all;state.batchIdx=0;presentDetected();
+  // auto-accept confidently tagged pieces; review only the doubtful ones
+  const good=all.filter(it=>it.name&&it.color&&it.category&&it.subtype);
+  const review=all.filter(it=>!(it.name&&it.color&&it.category&&it.subtype));
+  let saved=0;
+  for(const it of good){try{it.thumb=await makeThumb(it.photo);}catch(_){}
+    await idbPut('items',it);if(!state.items.some(x=>x.id===it.id))state.items.push(it);markDirty();saved++;}
+  if(saved){renderWardrobe();}
+  if(review.length){toast(saved?(saved+" saved automatically — "+review.length+" to check"):"Review these ones");state.batch=review;state.batchIdx=0;presentDetected();}
+  else{closeAdd();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast("Added "+saved+" piece"+(saved>1?"s":"")+" automatically");}
 });
 async function presentDetected(){state.pending=state.batch[state.batchIdx];
   setAddTitle("Found ("+(state.batchIdx+1)+"/"+state.batch.length+")");renderAddBody({});}
@@ -709,7 +727,7 @@ function skipBatch(){if(!state.batch)return;state.batchIdx++;if(state.batchIdx<s
 function finishBatch(){const n=state.batch?state.batch.length:0;state.batch=null;closeAdd();renderWardrobe();go('wardrobe',document.querySelector('.nav button[data-v="wardrobe"]'));toast("Done adding pieces");}
 
 function openAdd(){$('addSheet').classList.add('up');}
-function closeAdd(){$('addSheet').classList.remove('up');state.pending=null;state.editingId=null;state.batch=null;state.guided=false;state.pile=false;state.pileCount=0;}
+function closeAdd(){state.photoToolsOpen=false;$('addSheet').classList.remove('up');state.pending=null;state.editingId=null;state.batch=null;state.guided=false;state.pile=false;state.pileCount=0;}
 function renderAddBody(o){const p=state.pending;if(!p)return;
   if(o.cutout){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Removing the background…<div style="font-size:11px;margin-top:6px">First time is a little longer (one-time setup)</div></div>`;return;}
   if(o.loading){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading your piece…</div>`;return;}
@@ -718,18 +736,23 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
   const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(inPile?"Save & next piece":(editing?"Save changes":"Add to wardrobe"));
   $('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="mini" style="flex:1" onclick="syncFields();rotatePending()">↻ Rotate</button>
-      <button class="mini" style="flex:1" onclick="syncFields();openCrop()">⛶ Crop</button>
-      <button class="mini" style="flex:1" onclick="syncFields();openEdit()">✎ Touch up</button>
-    </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button class="mini" style="flex:1" onclick="syncFields();replacePhoto()">🔄 Replace photo</button>
-      <button class="mini" style="flex:1" onclick="syncFields();studioPending()">✨ Studio</button>
+      <button class="mini" style="flex:1" onclick="syncFields();togglePhotoTools(this)">✎ Edit photo ▾</button>
       <button class="mini" style="flex:1" onclick="syncFields();scanTag()">⌗ Tag</button>
     </div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button class="mini" style="flex:1" onclick="syncFields();undoCut()">↩︎ Undo cut-out</button>
-      <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut background</button>
+    <div id="photoTools" style="display:${state.photoToolsOpen?'block':'none'};margin-bottom:8px">
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="mini" style="flex:1" onclick="syncFields();rotatePending()">↻ Rotate</button>
+        <button class="mini" style="flex:1" onclick="syncFields();openCrop()">⛶ Crop</button>
+        <button class="mini" style="flex:1" onclick="syncFields();openEdit()">✎ Touch up</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="mini" style="flex:1" onclick="syncFields();replacePhoto()">🔄 Replace</button>
+        <button class="mini" style="flex:1" onclick="syncFields();studioPending()">✨ Studio</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="mini" style="flex:1" onclick="syncFields();undoCut()">↩︎ Undo cut-out</button>
+        <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut</button>
+      </div>
     </div>
     <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" oninput="fitLabel(this.value)" onchange="fitPending(+this.value)"><span class="fitval" id="fitVal">${fitText(p.fit||defFit(cat))}</span></div>
     ${!hasAI()?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">AI is off — fields won't auto-fill. Add your key in Settings (gear) to auto-tag.</div>`:``}
@@ -811,6 +834,7 @@ function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image(
   o.drawImage(t,minX,minY,cw,ch,dx,dy,dw,dh);
   res(out.toDataURL('image/png'));
 };img.onerror=rej;img.src=src;});}
+function togglePhotoTools(btn){state.photoToolsOpen=!state.photoToolsOpen;const el=$('photoTools');if(el)el.style.display=state.photoToolsOpen?'block':'none';if(btn)btn.textContent=state.photoToolsOpen?'✎ Edit photo ▴':'✎ Edit photo ▾';}
 function fitText(v){v=+v;return v>=100?'full size':(v+'% · −'+(100-v)+'%');}
 function fitLabel(v){const e=$('fitVal');if(e)e.textContent=fitText(v);}
 async function fitPending(pct){const p=state.pending;if(!p)return;
@@ -919,9 +943,22 @@ function bindEdit(){const c=ed.canvas;
   c.onpointerup=up;c.onpointercancel=up;}
 function applyEdit(){if(!ed.canvas)return;state.pending.photo=ed.canvas.toDataURL('image/png');closeEdit();renderAddBody({});toast("Cut-out updated");}
 
+function getDirty(){try{return +(localStorage.getItem('ensemble:dirty')||0);}catch(e){return 0;}}
+function markDirty(){try{localStorage.setItem('ensemble:dirty',String(getDirty()+1));}catch(e){}renderBackupNudge();}
+function clearDirty(){try{localStorage.setItem('ensemble:dirty','0');}catch(e){}renderBackupNudge();}
+function renderBackupNudge(){const el=$('backupNudge');if(!el)return;const n=getDirty();
+  if(n>=5){el.style.display='flex';el.innerHTML=`<span>${n} change${n>1?'s':''} since your last backup.</span><button class="wbtn" onclick="exportData()">Export now</button>`;}
+  else{el.style.display='none';el.innerHTML='';}}
+function makeThumb(dataURL){return new Promise(res=>{const img=new Image();img.onload=()=>{
+  const max=300;const r=Math.min(1,max/Math.max(img.width,img.height));
+  const w=Math.round(img.width*r),h=Math.round(img.height*r);
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+  res(c.toDataURL('image/png'));};img.onerror=()=>res(null);img.src=dataURL;});}
+async function ensureThumbs(){let n=0;for(const it of state.items){if(!it.thumb&&it.photo){try{const t=await makeThumb(it.photo);if(t){it.thumb=t;await idbPut('items',it);n++;}}catch(_){}}}if(n)renderGrid();}
 async function saveItem(){const p=state.pending;if(!p)return;
   p.category=p.category||"Top";p.name=($('f-name')?.value||p.name||"").trim();p.brand=($('f-brand')?.value||p.brand||"").trim();p.subtype=($('f-sub')?.value||"").trim();p.color=($('f-col')?.value||"").trim();p.formality=$('f-form')?.value||"Casual";p.season=$('f-season')?.value||"Any";if(!p.colorHex)p.colorHex="#b8b2a6";
-  await idbPut('items',p);
+  try{p.thumb=await makeThumb(p.photo);}catch(_){}
+  await idbPut('items',p);markDirty();
   if(state.editingId){const i=state.items.findIndex(x=>x.id===p.id);if(i>=0)state.items[i]=p;else state.items.push(p);}
   else if(!state.items.some(x=>x.id===p.id))state.items.push(p);
   if(state.batch){state.batchIdx++;if(state.batchIdx<state.batch.length){presentBatchItem();return;}return finishBatch();}
@@ -957,7 +994,7 @@ function renderSeedPicker(){const el=$('seedPanel');if(!el)return;state.seedIds=
   const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   el.innerHTML=`<div class="note" style="margin-bottom:8px">Style me will build every outfit around these — selected: <b>${state.seedIds.length}</b>${state.seedIds.length?` · <span class="link" onclick="clearSeeds()">clear</span>`:''}</div>`+
     cats.map(c=>{const items=vis.filter(i=>i.category===c);
-      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.seedIds.includes(i.id)?'on':''}" onclick="toggleSeed('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.seedIds.includes(i.id)?'on':''}" onclick="toggleSeed('${i.id}')"><img src="${i.thumb||i.photo}" alt="" loading="lazy"></div>`).join("")+`</div></div>`;}).join("");}
 function forceSeeds(l,seeds){
   let ids=(l.itemIds||[]).filter(id=>!!itemById(id));
   for(const sd of seeds){
@@ -1124,17 +1161,38 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <div class="note" style="margin-bottom:14px;line-height:1.65">Export a backup of the <b>active</b> closet now and then so you never lose it — and import it back on a new phone or after clearing the browser.</div>
     <button class="btn btn-ghost" style="margin-bottom:10px" onclick="exportData()">Export backup (${state.items.length} pieces)</button>
     <button class="btn btn-ghost" onclick="importStart()">Import backup (merge)…</button>`;}
-function exportData(){
-  try{const data={app:'ensemble',v:2,date:new Date().toISOString(),theme:getTheme(),items:state.items,saved:state.saved,taste:taste,profile:profile};
-    const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ensemble-backup-'+new Date().toISOString().slice(0,10)+'.json';
-    document.body.appendChild(a);a.click();a.remove();toast("Backup downloaded");}
+function stripThumbs(items){return (items||[]).map(i=>{const{thumb,...rest}=i;return rest;});}
+async function packAndSave(data,base){
+  const json=JSON.stringify(data);
+  try{
+    if(window.CompressionStream){
+      const cs=new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'));
+      const blob=await new Response(cs).blob();
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'.json.gz';
+      document.body.appendChild(a);a.click();a.remove();return true;
+    }
+  }catch(_){}
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'.json';
+  document.body.appendChild(a);a.click();a.remove();return true;}
+async function readBackupFile(file){
+  const buf=new Uint8Array(await file.arrayBuffer());
+  const gz=(buf[0]===0x1f&&buf[1]===0x8b);
+  if(gz&&window.DecompressionStream){
+    const ds=new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(ds).text());
+  }
+  return JSON.parse(new TextDecoder().decode(buf));}
+async function exportData(){
+  try{const data={app:'ensemble',v:2,date:new Date().toISOString(),theme:getTheme(),items:stripThumbs(state.items),saved:state.saved,taste:taste,profile:profile};
+    await packAndSave(data,'ensemble-backup-'+new Date().toISOString().slice(0,10));
+    clearDirty();toast("Backup downloaded");}
   catch(_){toast("Export failed");}
 }
 function importStart(){$('importInput').value="";$('importInput').click();}
 $('importInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;
-  let data;try{data=JSON.parse(await file.text());}catch(_){toast("That file isn't a valid backup");return;}
+  let data;try{data=await readBackupFile(file);}catch(_){toast("That file isn't a valid backup");return;}
   if(!data||!Array.isArray(data.items)){toast("That file isn't a valid backup");return;}
   if(!confirm("Import "+data.items.length+" pieces? This merges with what you have.")){return;}
   try{
@@ -1144,7 +1202,7 @@ $('importInput').addEventListener('change',async e=>{
     if(data.taste&&data.taste.likes){taste=data.taste;if(!taste.likes)taste.likes=[];if(!taste.dislikes)taste.dislikes=[];saveTaste();}
     if(data.profile){profile=data.profile;if(!profile.styles)profile.styles=[];saveProfile();}
     state.items=await idbAll('items');state.saved=await idbAll('looks');
-    closeSettings();renderWardrobe();renderSaved();toast("Imported "+data.items.length+" pieces");
+    closeSettings();renderWardrobe();renderSaved();ensureThumbs();toast("Imported "+data.items.length+" pieces");
   }catch(_){toast("Import failed");}
 });
 async function switchCloset(id){if(id===CID){return;}setCID(id);loadTaste();loadProfile();
@@ -1171,15 +1229,14 @@ async function exportCloset(id){try{
   let t={likes:[],dislikes:[]},p={age:"",styles:[],present:""};
   try{const tv=localStorage.getItem(tasteKey(id));if(tv)t=JSON.parse(tv);}catch(e){}
   try{const pv=localStorage.getItem(profileKey(id));if(pv)p=JSON.parse(pv);}catch(e){}
-  const data={app:'ensemble',v:3,date:new Date().toISOString(),closet:closetName(id),theme:getTheme(),items,saved,taste:t,profile:p};
-  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='closet-'+closetName(id).replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-|-$/g,'')+'-'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a);a.click();a.remove();toast("Exported "+closetName(id));
+  const data={app:'ensemble',v:3,date:new Date().toISOString(),closet:closetName(id),theme:getTheme(),items:stripThumbs(items),saved,taste:t,profile:p};
+  await packAndSave(data,'closet-'+closetName(id).replace(/[^a-z0-9]+/gi,'-').toLowerCase().replace(/^-|-$/g,'')+'-'+new Date().toISOString().slice(0,10));
+  toast("Exported "+closetName(id));
 }catch(_){toast("Export failed");}}
 function importClosetStart(){$('importClosetInput').value="";$('importClosetInput').click();}
 $('importClosetInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;
-  let data;try{data=JSON.parse(await file.text());}catch(_){toast("That file isn't a valid backup");return;}
+  let data;try{data=await readBackupFile(file);}catch(_){toast("That file isn't a valid backup");return;}
   if(!data||!Array.isArray(data.items)){toast("That file isn't a valid backup");return;}
   const nm=(prompt("Name this closet:",data.closet||file.name.replace(/\.json$/i,"")||"Imported")||"").trim()||"Imported";
   const id='c_'+Date.now().toString(36);const a=getClosets();a.push({id,name:nm});saveClosets(a);setCID(id);
@@ -1190,7 +1247,7 @@ $('importClosetInput').addEventListener('change',async e=>{
   loadTaste();loadProfile();
   try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){state.items=[];state.saved=[];}
   state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
-  renderWardrobe();renderSaved();renderSettings();renderClosetBar();toast('Imported as "'+nm+'" ('+data.items.length+' pieces)');
+  renderWardrobe();renderSaved();renderSettings();renderClosetBar();ensureThumbs();toast('Imported as "'+nm+'" ('+data.items.length+' pieces)');
 });
 async function exportAllClosets(){try{
   const list=getClosets();const out=[];
@@ -1198,17 +1255,16 @@ async function exportAllClosets(){try{
     const items=await idbAllFrom(dbName(c.id),'items');const saved=await idbAllFrom(dbName(c.id),'looks');
     let t=null,p=null;try{const tv=localStorage.getItem(tasteKey(c.id));if(tv)t=JSON.parse(tv);}catch(e){}
     try{const pv=localStorage.getItem(profileKey(c.id));if(pv)p=JSON.parse(pv);}catch(e){}
-    out.push({name:c.name,items,saved,taste:t,profile:p});
+    out.push({name:c.name,items:stripThumbs(items),saved,taste:t,profile:p});
   }
   const data={app:'ensemble',kind:'all',v:1,date:new Date().toISOString(),theme:getTheme(),closets:out};
-  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stylist-all-closets-'+new Date().toISOString().slice(0,10)+'.json';
-  document.body.appendChild(a);a.click();a.remove();toast("Exported "+list.length+" closet"+(list.length>1?"s":""));
+  await packAndSave(data,'stylist-all-closets-'+new Date().toISOString().slice(0,10));
+  clearDirty();toast("Exported "+list.length+" closet"+(list.length>1?"s":""));
 }catch(_){toast("Export failed");}}
 function importAllStart(){$('importAllInput').value="";$('importAllInput').click();}
 $('importAllInput').addEventListener('change',async e=>{
   const file=e.target.files&&e.target.files[0];if(!file)return;
-  let data;try{data=JSON.parse(await file.text());}catch(_){toast("That file isn't a valid backup");return;}
+  let data;try{data=await readBackupFile(file);}catch(_){toast("That file isn't a valid backup");return;}
   if(!data||!Array.isArray(data.closets)){toast("Not an all-closets backup");return;}
   if(!confirm("Import "+data.closets.length+" closet(s)? They'll be added alongside your current ones."))return;
   const reg=getClosets();let firstId=null;
@@ -1225,7 +1281,7 @@ $('importAllInput').addEventListener('change',async e=>{
   setCID(firstId||CID);loadTaste();loadProfile();
   try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){state.items=[];state.saved=[];}
   state.filter='All';state.q='';state.fseason='All';state.sort='recent';state.lastLooks=null;
-  renderWardrobe();renderSaved();renderSettings();renderClosetBar();
+  renderWardrobe();renderSaved();renderSettings();renderClosetBar();ensureThumbs();
   toast("Imported "+data.closets.length+" closet"+(data.closets.length>1?"s":""));
 });
 function saveSettings(){const v=($('keyInput')?.value||"").trim();setKey(v);refreshAIBadge();renderSettings();toast(v?"AI switched on":"Saved");}
@@ -1318,7 +1374,7 @@ function renderMarketPicker(){const el=$('marketPicker');if(!el)return;state.mar
   const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   el.innerHTML=`<div class="note" style="margin-bottom:10px">Selected: <b>${state.marketIds.length}</b> piece${state.marketIds.length===1?'':'s'}</div>`+
     cats.map(c=>{const items=vis.filter(i=>i.category===c);
-      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+      return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span></div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.marketIds.includes(i.id)?'on':''}" onclick="toggleMarket('${i.id}')"><img src="${i.thumb||i.photo}" alt="" loading="lazy"></div>`).join("")+`</div></div>`;}).join("");}
 async function aiMarket(pieces){
   const month=new Date().toLocaleString('en',{month:'long',year:'numeric'});
   const tb=(state.trends&&state.trends.text)?(' Current trends to respect: '+state.trends.text+'.'):'';
@@ -1359,7 +1415,7 @@ function renderBuild(){
   $('buildPreview').innerHTML=pcs.length?`<div class="look" style="margin-bottom:14px">${flatLayHTML(pcs)}</div>`:`<div class="note" style="text-align:center;margin:24px 0">Pick pieces below to compose a look.<br>Tops &amp; accessories can be layered.</div>`;
   const vis=state.items.filter(i=>!i.hidden);const cats=CATS.filter(c=>vis.some(i=>i.category===c));
   $('buildPicker').innerHTML=cats.map(c=>{const items=vis.filter(i=>i.category===c);
-    return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span>${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.photo}" alt=""></div>`).join("")+`</div></div>`;}).join("");}
+    return `<div class="bpgroup"><div class="bplabel">${c} <span class="cnt">${items.length}</span>${(c==='Top'||c==='Accessory')?' · layerable':''}</div><div class="bpgrid">`+items.map(i=>`<div class="bpick ${state.buildIds.includes(i.id)?'on':''}" onclick="toggleBuild('${i.id}')"><img src="${i.thumb||i.photo}" alt="" loading="lazy"></div>`).join("")+`</div></div>`;}).join("");}
 async function saveBuilt(){const ids=state.buildIds.slice();if(ids.length<2){toast("Pick at least two pieces");return;}
   const l={name:"My outfit",trend:"Custom",itemIds:ids,why:"Hand-picked by you.",sid:'s_'+Date.now()+'_'+Math.floor(Math.random()*1e5)};
   state.saved.unshift(l);await idbPut('looks',l);closeBuild();renderSaved();go('saved',document.querySelector('.nav button[data-v="saved"]'));toast("Saved your look");}
@@ -1403,7 +1459,7 @@ try{const icon="data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.
 }catch(e){}
 
 /* ---- boot ---- */
-(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();checkEnv();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();checkForUpdate();})();
+(async function(){try{if(!localStorage.getItem('ensemble:themeMono')){localStorage.setItem('ensemble:theme','mono');localStorage.setItem('ensemble:themeMono','1');}}catch(e){}ensureClosets();checkEnv();applyTheme(getTheme());loadTaste();loadTrends();fetchTrendFeed();loadProfile();renderOcc();refreshAIBadge();try{state.items=await idbAll('items');state.saved=await idbAll('looks');}catch(_){}renderClosetBar();renderWardrobe();checkForUpdate();ensureThumbs();})();
 </script>
 </body>
 </html>
