@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-26-33 -->
+<title>Style Me</title><!-- build-marker: 2026-07-26-34 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -372,7 +372,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-26-33";
+const APP_VERSION="2026-07-26-34";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -460,7 +460,7 @@ async function callAI(content,maxTokens,tools){
 function parseJSON(t){let s=t.trim();const a=s.indexOf('{'),b=s.indexOf('[');let i=(a<0)?b:(b<0?a:Math.min(a,b));if(i>0)s=s.slice(i);s=s.replace(/```$/,'').trim();return JSON.parse(s);}
 async function aiTag(dataURL){const base64=dataURL.split(',')[1];const mt=/^data:(image\/[a-z]+)/i.exec(dataURL);const media=mt?mt[1]:'image/jpeg';
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:media,data:base64}},
-    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), brand (only if a logo/brand is clearly visible on the item, else ""). Use Jacket for lighter layering pieces worn indoors or in mild weather (blazer, denim/leather jacket, bomber, cardigan-style jacket) and Outerwear only for heavier outdoor coats (winter coat, parka, trench, raincoat, puffer).'}],400);
+    {type:"text",text:'Tag this single clothing item for a personal wardrobe app. Reply with ONLY a JSON object, no markdown. Keys: name (a short descriptive product-style title in English, e.g. "Beige oversized linen shirt"), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), lengthCm (your best estimate of the real length of the garment in centimetres, head-to-hem as it would be laid flat: e.g. mini skirt 40, trousers 104, maxi dress 140, ankle boot 29, sunglasses 12), brand (only if a logo/brand is clearly visible on the item, else ""). Use Jacket for lighter layering pieces worn indoors or in mild weather (blazer, denim/leather jacket, bomber, cardigan-style jacket) and Outerwear only for heavier outdoor coats (winter coat, parka, trench, raincoat, puffer).'}],400);
   return parseJSON(txt);}
 async function aiStyle(items,occasion,wnote,seeds){
   const list=items.map(i=>({id:i.id,category:i.category,subtype:i.subtype,color:i.color,formality:i.formality,season:i.season}));
@@ -590,7 +590,7 @@ function setAddTitle(t){const e=$('addTitle');if(e)e.textContent=t;}
 function startAdd(){state.editingId=null;state.batch=null;state.pending=null;setAddTitle("Add pieces");openAdd();renderChooser();}
 async function aiDetectItems(dataURL){const base64=dataURL.split(',')[1];const mt=/^data:(image\/[a-z]+)/i.exec(dataURL);const media=mt?mt[1]:'image/jpeg';
   const txt=await callAI([{type:"image",source:{type:"base64",media_type:media,data:base64}},
-    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, name (short descriptive title in English), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
+    {type:"text",text:'This photo shows several separate clothing items laid out flat. Find EVERY distinct garment or accessory. For each, give its bounding box as percentages of the image (0-100). Reply with ONLY a JSON array, no markdown. Each element: {x, y, w, h, name (short descriptive title in English), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), subtype (short), color (plain word), colorHex (hex string), formality (Casual, Smart or Formal), season (Any, Warm or Cold), lengthCm (best estimate of the real length of the piece in cm, e.g. mini skirt 40, trousers 104, ankle boot 29)}. x,y = top-left corner; w,h = width/height. Boxes should be generous enough to include the whole item but must not include other items. Ignore the floor, hangers and anything that is not clothing.'}],1600);
   const arr=parseJSON(txt);return Array.isArray(arr)?arr:[];}
 function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
   const W=img.naturalWidth||img.width,H=img.naturalHeight||img.height;
@@ -617,7 +617,7 @@ $('flatInput').addEventListener('change',async e=>{
     let done=0;
     for(const b of boxes){
       try{const crop=await cropImage(dataURL,b,2);
-        const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
+        const it={id:newId(),photo:crop,orig:crop,category:b.category||"Top",name:b.name||"",lengthCm:b.lengthCm||null,subtype:b.subtype||"",color:b.color||"",colorHex:b.colorHex||"",formality:b.formality||"Casual",season:b.season||"Any"};
         try{it.photo=await cutout(crop);it.cut=it.photo;}catch(_){it.cut=crop;}
         all.push(it);done++;
         $('addBody').innerHTML=`<div class="loadwrap"><span class="spinner dark"></span> &nbsp;Photo ${pi}/${files.length} — cutting out (${done}/${boxes.length})…<div style="margin-top:8px;font-size:12px">${all.length} piece${all.length>1?'s':''} found so far</div></div>`;
@@ -656,7 +656,7 @@ async function viaProxy(url,asBlob){
 async function aiReadProduct(html){
   const head=(html.match(/<head[\s\S]*?<\/head>/i)||[''])[0];
   const snip=(head+html.replace(/<script[\s\S]*?<\/script>/gi,'')).slice(0,16000);
-  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: name (short descriptive title in English), brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), image (absolute URL of the main product image). HTML:\n'+snip,700);
+  const txt=await callAI('This is the HTML of an online-shop product page for a clothing item. Extract the product details. Reply with ONLY a JSON object, no markdown. Keys: name (short descriptive title in English), brand, subtype (short, e.g. "white cotton shirt"), color (plain word), colorHex (hex string), category (one of Top, Bottom, Dress, Jacket, Outerwear, Shoes, Purse, Accessory), formality (Casual, Smart or Formal), season (Any, Warm or Cold), lengthCm (best estimate of the real garment length in cm), image (absolute URL of the main product image). HTML:\n'+snip,700);
   return parseJSON(txt);
 }
 function startLink(){if(!hasAI()){toast("Turn on AI in Settings first");return;}
@@ -680,7 +680,7 @@ async function importLink(){
   let dataURL;
   try{const blob=await viaProxy(info.image,true);dataURL=await blobToDataURL(blob);}
   catch(_){say('var(--wine)','✕ Could not download the product image.');return;}
-  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:info.category||'Top',name:info.name||'',brand:info.brand||'',subtype:info.subtype||'',color:info.color||'',colorHex:info.colorHex||'#b8b2a6',formality:info.formality||'Casual',season:info.season||'Any',source:url};
+  state.pending={id:newId(),photo:dataURL,orig:dataURL,category:info.category||'Top',name:info.name||'',lengthCm:info.lengthCm||null,brand:info.brand||'',subtype:info.subtype||'',color:info.color||'',colorHex:info.colorHex||'#b8b2a6',formality:info.formality||'Casual',season:info.season||'Any',source:url};
   setAddTitle("From link");renderAddBody({});
   toast(info.brand?("Found: "+info.brand):"Product loaded");}
 
@@ -755,6 +755,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
       </div>
     </div>
     <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" oninput="fitLabel(this.value)" onchange="fitPending(+this.value)"><span class="fitval" id="fitVal">${fitText(p.fit||defFit(cat))}</span></div>
+    <button class="mini" style="margin-bottom:16px" onclick="syncFields();autoFit()">📐 Auto size — match real proportions</button>
     ${!hasAI()?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">AI is off — fields won't auto-fill. Add your key in Settings (gear) to auto-tag.</div>`:``}
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">Couldn't auto-tag this one. Check your key with “Test key” in Settings, or fill it below.</div>`:``}
     ${p.barcode?`<div class="note" style="margin-bottom:12px">Barcode read: <b>${p.barcode}</b></div>`:``}
@@ -815,6 +816,51 @@ function syncFields(){const p=state.pending;if(!p)return;if($('f-name'))p.name=$
 /* ---- touch-up editor ---- */
 /* ---- replace photo (keeps the description) ---- */
 /* ---- studio look / presentation size ---- */
+/* ---- real-world proportions ---------------------------------------------
+   Photos carry no scale, so we estimate each piece's real length (cm):
+   the AI's estimate when it gave one, otherwise wording, otherwise category. */
+const LEN_CAT={Top:65,Bottom:100,Dress:110,Jacket:70,Outerwear:110,Shoes:25,Purse:28,Accessory:22};
+const LEN_WORDS=[
+  [/\bmaxi|floor[- ]length|ankle[- ]length\b/,{Dress:140,Bottom:100}],
+  [/\bmidi\b/,{Dress:115,Bottom:72}],
+  [/\bmini|micro\b/,{Dress:85,Bottom:40}],
+  [/\bshorts?\b/,{Bottom:42}],
+  [/\bbermuda|capri|cropped trouser\b/,{Bottom:70}],
+  [/\bskirt\b/,{Bottom:62}],
+  [/\btrousers?|jeans|pants|chinos|leggings|joggers\b/,{Bottom:104}],
+  [/\bcrop(ped)?\b/,{Top:42,Jacket:52}],
+  [/\blonglines?|tunic|oversized shirt\b/,{Top:82}],
+  [/\bt[- ]?shirt|tee|blouse|shirt|knit|jumper|sweater|hoodie\b/,{Top:68}],
+  [/\btrench|long coat|overcoat\b/,{Outerwear:120}],
+  [/\bparka|puffer|padded|anorak\b/,{Outerwear:92}],
+  [/\bblazer\b/,{Jacket:76}],
+  [/\bbomber|denim jacket|biker|perfecto\b/,{Jacket:62}],
+  [/\bknee[- ]high|tall boot|thigh\b/,{Shoes:46}],
+  [/\bankle boot|chelsea|combat|tabi\b/,{Shoes:29}],
+  [/\bboots?\b/,{Shoes:32}],
+  [/\bheels?|pumps?|sandals?|flats?|loafers?|mules?\b/,{Shoes:23}],
+  [/\bsneakers?|trainers?\b/,{Shoes:26}],
+  [/\btote|shopper|weekend bag\b/,{Purse:36}],
+  [/\bclutch|mini bag|pouch\b/,{Purse:19}],
+  [/\bscarf|shawl\b/,{Accessory:55}],
+  [/\bbelt\b/,{Accessory:35}],
+  [/\bhat|cap|beanie\b/,{Accessory:25}],
+  [/\bsunglasses|glasses|watch|ring|earrings?|necklace|bracelet\b/,{Accessory:12}]
+];
+function lengthOf(i){
+  const n=+i.lengthCm;
+  if(n>=5&&n<=200)return n;
+  const cat=i.category||'Top';
+  const txt=[(i.name||''),(i.subtype||''),(i.category||'')].join(' ').toLowerCase();
+  for(const [re,map] of LEN_WORDS){if(re.test(txt)&&map[cat]!=null)return map[cat];}
+  return LEN_CAT[cat]||70;
+}
+const LEN_REF=140;            // a floor-length dress = full frame
+function realFit(i){
+  const r=Math.max(0.05,Math.min(1,lengthOf(i)/LEN_REF));
+  const f=Math.pow(r,0.6);    // gentle compression: keeps small pieces visible
+  return Math.round(Math.max(30,Math.min(100,f*100)));
+}
 function bigCat(c){return c==='Top'||c==='Bottom'||c==='Dress'||c==='Jacket'||c==='Outerwear';}
 function defFit(c){return bigCat(c)?100:82;}
 function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image();img.onload=()=>{
@@ -835,6 +881,9 @@ function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image(
   res(out.toDataURL('image/png'));
 };img.onerror=rej;img.src=src;});}
 function togglePhotoTools(btn){state.photoToolsOpen=!state.photoToolsOpen;const el=$('photoTools');if(el)el.style.display=state.photoToolsOpen?'block':'none';if(btn)btn.textContent=state.photoToolsOpen?'✎ Edit photo ▴':'✎ Edit photo ▾';}
+async function autoFit(){const p=state.pending;if(!p)return;const pct=realFit(p);
+  const sl=$('f-fit');if(sl)sl.value=pct;fitLabel(pct);
+  await fitPending(pct);toast("Sized to real proportions (~"+lengthOf(p)+" cm)");}
 function fitText(v){v=+v;return v>=100?'full size':(v+'% · −'+(100-v)+'%');}
 function fitLabel(v){const e=$('fitVal');if(e)e.textContent=fitText(v);}
 async function fitPending(pct){const p=state.pending;if(!p)return;
@@ -845,6 +894,13 @@ async function studioPending(){const p=state.pending;if(!p)return;const pct=p.fi
   renderAddBody({loading:true});
   try{p.photo=await frameItem(p.cut||p.photo,pct/100);p.fit=pct;p.studio=true;}catch(_){}
   renderAddBody({});toast("Studio look applied");}
+async function realSizeAll(){if(!state.items.length){toast("No pieces yet");return;}
+  if(!confirm("Re-size all "+state.items.length+" pieces so they look proportional to each other? This re-frames every photo."))return;
+  closeSettings();let n=0;
+  for(const it of state.items){try{const pct=realFit(it);it.photo=await frameItem(it.cut||it.photo,pct/100);it.fit=pct;it.studio=true;
+    try{it.thumb=await makeThumb(it.photo);}catch(_){}
+    await idbPut('items',it);n++;if(n%4===0)toast("Scaling… "+n+"/"+state.items.length);}catch(_){}}
+  renderGrid();toast("Scaled "+n+" piece"+(n>1?"s":""));}
 async function studioAll(){if(!state.items.length){toast("No pieces yet");return;}
   if(!confirm("Give all "+state.items.length+" pieces the studio look? It re-frames every photo (you can't undo in bulk).")) return;
   closeSettings();let n=0;
@@ -1148,7 +1204,8 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <div class="field"><label>Your style</label><div class="chips">${PSTYLES.map(s=>`<button class="chip ${profile.styles.includes(s)?'on':''}" onclick="toggleStyle('${s.replace(/'/g,"\\'")}')">${s}</button>`).join("")}</div></div>
     <div class="seclabel" style="margin-top:24px">Wardrobe look</div>
     <div class="note" style="margin-bottom:12px;line-height:1.6">Give every piece the same clean framing — centred, even margins and a soft shadow — for a tidy, catalogue-style grid.</div>
-    <button class="btn btn-ghost" onclick="studioAll()">✨ Polish all pieces (Studio look)</button>
+    <button class="btn btn-ghost" style="margin-bottom:10px" onclick="studioAll()">✨ Polish all pieces (Studio look)</button>
+    <button class="btn btn-ghost" onclick="realSizeAll()">📐 Scale all to real proportions</button>
     <div class="seclabel" style="margin-top:24px">Closets</div>
     <div class="note" style="margin-bottom:12px;line-height:1.6">Keep separate wardrobes — e.g. one per person. The <b>active</b> closet is what the app shows. Importing a file as a new closet keeps it separate from the others.</div>
     ${getClosets().map(c=>`<div class="closetrow"><span class="cn">${c.name}${c.id===CID?' <span class="cactive">active</span>':''}</span><div class="crbtns">${c.id===CID?'':`<button class="mini2" onclick="switchCloset('${c.id}')">Use</button>`}<button class="mini2" onclick="exportCloset('${c.id}')">Export</button><button class="mini2" onclick="renameCloset('${c.id}')">Rename</button><button class="mini2" onclick="deleteCloset('${c.id}')">Delete</button></div></div>`).join("")}
