@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-26-34 -->
+<title>Style Me</title><!-- build-marker: 2026-07-26-35 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -372,7 +372,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-26-34";
+const APP_VERSION="2026-07-26-35";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -422,7 +422,7 @@ async function idbDel(s,id){try{const db=await idb();return await new Promise(re
 function resize(file,max=1024){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
   const png=!!(file&&file.type&&/png/i.test(file.type));
   img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));const w=Math.round(img.width*r),h=Math.round(img.height*r);
-    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',0.82));};
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(png?encT(c):encO(c));};
   img.onerror=()=>{URL.revokeObjectURL(url);rej();};img.src=url;});}
 
 /* ---- background removal (on-device, no key) ---- */
@@ -435,15 +435,24 @@ function rotateImage(dataURL,deg){return new Promise((res,rej)=>{const img=new I
   const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height;const c=document.createElement('canvas');
   if(deg===90||deg===270){c.width=h;c.height=w;}else{c.width=w;c.height=h;}
   const ctx=c.getContext('2d');ctx.translate(c.width/2,c.height/2);ctx.rotate(deg*Math.PI/180);ctx.drawImage(img,-w/2,-h/2);
-  res(c.toDataURL('image/png'));};img.onerror=rej;img.src=dataURL;});}
+  res(encT(c));};img.onerror=rej;img.src=dataURL;});}
 async function rotatePending(){const p=state.pending;if(!p)return;
   try{p.photo=await rotateImage(p.photo,90);if(p.orig)p.orig=await rotateImage(p.orig,90);if(p.cut)p.cut=await rotateImage(p.cut,90);}catch(_){toast("Couldn't rotate");return;}
   renderAddBody({});}
+/* ---- compact image encoders (webp keeps transparency, ~5-10x smaller than png) ---- */
+function encT(c){try{const w=c.toDataURL('image/webp',0.8);if(w.slice(0,15)==='data:image/webp')return w;}catch(e){}return c.toDataURL('image/png');}
+function encO(c){try{const w=c.toDataURL('image/webp',0.8);if(w.slice(0,15)==='data:image/webp')return w;}catch(e){}return c.toDataURL('image/jpeg',0.82);}
+function recompress(dataURL,max,keepAlpha){return new Promise(res=>{if(!dataURL||dataURL.indexOf('data:image')!==0){res(dataURL);return;}
+  const img=new Image();img.onload=()=>{const r=Math.min(1,max/Math.max(img.width,img.height));
+    const w=Math.max(1,Math.round(img.width*r)),h=Math.max(1,Math.round(img.height*r));
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+    res(keepAlpha?encT(c):encO(c));};img.onerror=()=>res(dataURL);img.src=dataURL;});}
 async function cutout(dataURL){
   const fn=await loadRMBG();
   const inBlob=await(await fetch(dataURL)).blob();
   const outBlob=await fn(inBlob,{output:{format:'image/png'}});
-  return await blobToDataURL(outBlob);
+  const png=await blobToDataURL(outBlob);
+  return await recompress(png,1024,true);
 }
 
 /* ---- AI (uses your own key) ---- */
@@ -601,7 +610,7 @@ function cropImage(dataURL,box,pad){return new Promise((res,rej)=>{const img=new
   const sx=Math.round(W*x/100),sy=Math.round(H*y/100),sw=Math.round(W*w/100),sh=Math.round(H*h/100);
   const c=document.createElement('canvas');c.width=sw;c.height=sh;
   c.getContext('2d').drawImage(img,sx,sy,sw,sh,0,0,sw,sh);
-  res(c.toDataURL('image/png'));};img.onerror=rej;img.src=dataURL;});}
+  res(encT(c));};img.onerror=rej;img.src=dataURL;});}
 
 async function startFlatLay(){if(!hasAI()){toast("Turn on AI in Settings first");return;}$('flatInput').value="";$('flatInput').click();}
 $('flatInput').addEventListener('change',async e=>{
@@ -872,13 +881,13 @@ function frameItem(src,fill){return new Promise((res,rej)=>{const img=new Image(
   if(!found){minX=0;minY=0;maxX=w-1;maxY=h-1;}
   const cw=maxX-minX+1,ch=maxY-minY+1;
   const f=Math.max(0.3,Math.min(1,fill));
-  const W=810,H=1080;
+  const W=720,H=960;
   const scale=f*Math.min(W/cw,H/ch);
   const dw=cw*scale,dh=ch*scale,dx=(W-dw)/2,dy=(H-dh)/2;
   const out=document.createElement('canvas');out.width=W;out.height=H;const o=out.getContext('2d');
   o.shadowColor='rgba(0,0,0,0.22)';o.shadowBlur=H*0.025;o.shadowOffsetX=0;o.shadowOffsetY=H*0.016;
   o.drawImage(t,minX,minY,cw,ch,dx,dy,dw,dh);
-  res(out.toDataURL('image/png'));
+  res(encT(out));
 };img.onerror=rej;img.src=src;});}
 function togglePhotoTools(btn){state.photoToolsOpen=!state.photoToolsOpen;const el=$('photoTools');if(el)el.style.display=state.photoToolsOpen?'block':'none';if(btn)btn.textContent=state.photoToolsOpen?'✎ Edit photo ▴':'✎ Edit photo ▾';}
 async function autoFit(){const p=state.pending;if(!p)return;const pct=realFit(p);
@@ -901,6 +910,17 @@ async function realSizeAll(){if(!state.items.length){toast("No pieces yet");retu
     try{it.thumb=await makeThumb(it.photo);}catch(_){}
     await idbPut('items',it);n++;if(n%4===0)toast("Scaling… "+n+"/"+state.items.length);}catch(_){}}
   renderGrid();toast("Scaled "+n+" piece"+(n>1?"s":""));}
+async function compactAll(){if(!state.items.length){toast("No pieces yet");return;}
+  if(!confirm("Compress all "+state.items.length+" pieces to shrink storage and backups? Photos stay the same size on screen."))return;
+  closeSettings();let n=0;
+  for(const it of state.items){try{
+    if(it.photo)it.photo=await recompress(it.photo,960,true);
+    if(it.cut)it.cut=await recompress(it.cut,960,true);
+    if(it.orig)it.orig=await recompress(it.orig,900,/^data:image\/(png|webp)/.test(it.orig));
+    it.thumb=await makeThumb(it.photo);
+    await idbPut('items',it);n++;if(n%3===0)toast("Compressing… "+n+"/"+state.items.length);
+  }catch(_){}}
+  renderGrid();toast("Compressed "+n+" piece"+(n>1?"s":"")+" — export again for a smaller backup");}
 async function studioAll(){if(!state.items.length){toast("No pieces yet");return;}
   if(!confirm("Give all "+state.items.length+" pieces the studio look? It re-frames every photo (you can't undo in bulk).")) return;
   closeSettings();let n=0;
@@ -997,7 +1017,7 @@ function bindEdit(){const c=ed.canvas;
     for(let i=step;i<dist;i+=step)dab(a.x+dx*i/dist,a.y+dy*i/dist,p.scale);dab(p.x,p.y,p.scale);ed.last=p;};
   const up=()=>{ed.drawing=false;ed.last=null;};
   c.onpointerup=up;c.onpointercancel=up;}
-function applyEdit(){if(!ed.canvas)return;state.pending.photo=ed.canvas.toDataURL('image/png');closeEdit();renderAddBody({});toast("Cut-out updated");}
+function applyEdit(){if(!ed.canvas)return;state.pending.photo=encT(ed.canvas);closeEdit();renderAddBody({});toast("Cut-out updated");}
 
 function getDirty(){try{return +(localStorage.getItem('ensemble:dirty')||0);}catch(e){return 0;}}
 function markDirty(){try{localStorage.setItem('ensemble:dirty',String(getDirty()+1));}catch(e){}renderBackupNudge();}
@@ -1009,7 +1029,7 @@ function makeThumb(dataURL){return new Promise(res=>{const img=new Image();img.o
   const max=300;const r=Math.min(1,max/Math.max(img.width,img.height));
   const w=Math.round(img.width*r),h=Math.round(img.height*r);
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
-  res(c.toDataURL('image/png'));};img.onerror=()=>res(null);img.src=dataURL;});}
+  res(encT(c));};img.onerror=()=>res(null);img.src=dataURL;});}
 async function ensureThumbs(){let n=0;for(const it of state.items){if(!it.thumb&&it.photo){try{const t=await makeThumb(it.photo);if(t){it.thumb=t;await idbPut('items',it);n++;}}catch(_){}}}if(n)renderGrid();}
 async function saveItem(){const p=state.pending;if(!p)return;
   p.category=p.category||"Top";p.name=($('f-name')?.value||p.name||"").trim();p.brand=($('f-brand')?.value||p.brand||"").trim();p.subtype=($('f-sub')?.value||"").trim();p.color=($('f-col')?.value||"").trim();p.formality=$('f-form')?.value||"Casual";p.season=$('f-season')?.value||"Any";if(!p.colorHex)p.colorHex="#b8b2a6";
@@ -1205,7 +1225,8 @@ function renderSettings(){const k=getKey();const cur=getTheme();
     <div class="seclabel" style="margin-top:24px">Wardrobe look</div>
     <div class="note" style="margin-bottom:12px;line-height:1.6">Give every piece the same clean framing — centred, even margins and a soft shadow — for a tidy, catalogue-style grid.</div>
     <button class="btn btn-ghost" style="margin-bottom:10px" onclick="studioAll()">✨ Polish all pieces (Studio look)</button>
-    <button class="btn btn-ghost" onclick="realSizeAll()">📐 Scale all to real proportions</button>
+    <button class="btn btn-ghost" style="margin-bottom:10px" onclick="realSizeAll()">📐 Scale all to real proportions</button>
+    <button class="btn btn-ghost" onclick="compactAll()">🗜 Compress wardrobe (smaller backups)</button>
     <div class="seclabel" style="margin-top:24px">Closets</div>
     <div class="note" style="margin-bottom:12px;line-height:1.6">Keep separate wardrobes — e.g. one per person. The <b>active</b> closet is what the app shows. Importing a file as a new closet keeps it separate from the others.</div>
     ${getClosets().map(c=>`<div class="closetrow"><span class="cn">${c.name}${c.id===CID?' <span class="cactive">active</span>':''}</span><div class="crbtns">${c.id===CID?'':`<button class="mini2" onclick="switchCloset('${c.id}')">Use</button>`}<button class="mini2" onclick="exportCloset('${c.id}')">Export</button><button class="mini2" onclick="renameCloset('${c.id}')">Rename</button><button class="mini2" onclick="deleteCloset('${c.id}')">Delete</button></div></div>`).join("")}
