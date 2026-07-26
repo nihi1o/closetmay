@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-26-36 -->
+<title>Style Me</title><!-- build-marker: 2026-07-26-37 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -372,7 +372,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-26-36";
+const APP_VERSION="2026-07-26-37";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
@@ -743,7 +743,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
   if(o.tag){$('addBody').innerHTML=`<div class="preview"><img src="${p.photo}"></div><div class="loadwrap"><span class="spinner dark"></span> &nbsp;Reading the tag…</div>`;return;}
   const cat=p.category||"Top";const editing=!!state.editingId;const inBatch=!!state.batch;const inPile=!!state.pile;
   const primary=inBatch?("Save & next ("+(state.batchIdx+1)+"/"+state.batch.length+")"):(inPile?"Save & next piece":(editing?"Save changes":"Add to wardrobe"));
-  const prevSrc=(p.cut||p.photo);const prevScale=((p.fit||defFit(cat))/100);
+  const prevSrc=(p.cut||p.photo);const prevScale=Math.min(1,(p.fit||defFit(cat))/100);
   $('addBody').innerHTML=`<div class="preview" title="This is how it looks in your wardrobe"><img id="prevImg" src="${prevSrc}" style="transform:scale(${prevScale})"></div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="mini" style="flex:1" onclick="syncFields();togglePhotoTools(this)">✎ Edit photo ▾</button>
@@ -764,7 +764,7 @@ function renderAddBody(o){const p=state.pending;if(!p)return;
         <button class="mini" style="flex:1" onclick="syncFields();recut()">✂︎ Re-cut</button>
       </div>
     </div>
-    <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${p.fit||defFit(cat)}" oninput="fitLabel(this.value)" onchange="fitPending(+this.value)"><span class="fitval" id="fitVal">${fitText(p.fit||defFit(cat))}</span></div>
+    <div class="brushrow" style="margin-bottom:16px"><span class="blab">Fit</span><input type="range" id="f-fit" min="45" max="100" value="${Math.min(100,p.fit||defFit(cat))}" oninput="fitLabel(this.value)" onchange="fitPending(+this.value)"><span class="fitval" id="fitVal">${fitText(p.fit||defFit(cat))}</span></div>
     <button class="mini" style="margin-bottom:16px" onclick="syncFields();autoFit()">📐 Auto size — match real proportions</button>
     ${!hasAI()?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">AI is off — fields won't auto-fill. Add your key in Settings (gear) to auto-tag.</div>`:``}
     ${o.failed?`<div class="note" style="text-align:center;margin-bottom:12px;color:var(--wine)">Couldn't auto-tag this one. Check your key with “Test key” in Settings, or fill it below.</div>`:``}
@@ -895,7 +895,7 @@ async function autoFit(){const p=state.pending;if(!p)return;const pct=realFit(p)
   const sl=$('f-fit');if(sl)sl.value=pct;fitLabel(pct);
   await fitPending(pct);toast("Sized to real proportions (~"+lengthOf(p)+" cm)");}
 function fitText(v){v=+v;return v>=100?'full size':(v+'% · −'+(100-v)+'%');}
-function fitLabel(v){const e=$('fitVal');if(e)e.textContent=fitText(v);const im=$('prevImg');if(im)im.style.transform='scale('+(v/100)+')';}
+function fitLabel(v){const e=$('fitVal');if(e)e.textContent=fitText(v);const im=$('prevImg');if(im)im.style.transform='scale('+Math.min(1,v/100)+')';}
 async function fitPending(pct){const p=state.pending;if(!p)return;
   renderAddBody({loading:true});
   try{p.photo=await frameItem(p.cut||p.photo,pct/100);p.fit=pct;p.studio=true;}catch(_){}
