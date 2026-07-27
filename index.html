@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Style Me</title><!-- build-marker: 2026-07-26-41 -->
+<title>Style Me</title><!-- build-marker: 2026-07-26-42 -->
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -91,7 +91,7 @@
   .shead .t{font-family:var(--font-head);font-size:19px;font-weight:500}
   .x{width:34px;height:34px;border-radius:50%;border:1px solid var(--hair);background:var(--card);cursor:pointer;font-size:16px;color:var(--ink)}
   .sbody{flex:1;overflow-y:auto;padding:18px 20px calc(24px + env(safe-area-inset-bottom))}
-  .preview{aspect-ratio:3/4;height:52vh;max-height:540px;width:auto;max-width:100%;border-radius:18px;overflow:hidden;background:var(--look);border:1px solid var(--hair);margin:0 auto 16px;display:grid;place-items:center;padding:7px}
+  .preview{width:72%;max-width:320px;aspect-ratio:3/4;border-radius:18px;overflow:hidden;background:var(--look);border:1px solid var(--hair);margin:0 auto 16px;display:grid;place-items:center;padding:7px}
   .preview img{width:100%;height:100%;object-fit:contain;transform-origin:center;transition:transform .06s linear}
   .field{margin-bottom:14px}
   .field label{display:block;font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
@@ -371,7 +371,7 @@
 const OCCASIONS=["Casual","Work","Dinner","Evening","Weekend"];
 const CATS=["Top","Bottom","Dress","Jacket","Outerwear","Shoes","Purse","Accessory"];
 const MODEL="claude-sonnet-4-6";
-const APP_VERSION="2026-07-26-41";
+const APP_VERSION="2026-07-26-42";
 const state={items:[],saved:[],filter:"All",occasion:"Casual",pending:null,layout:"flat",lastLooks:null,editingId:null,batch:null,batchIdx:0,q:"",fseason:"All",sort:"recent",weather:null,buildIds:[],trends:null,guided:false,pile:false,pileCount:0,styleMode:"closet",marketIds:[],seedIds:[],seedOpen:false};
 const SEASONS=["Any","Warm","Cold"];
 const $=id=>document.getElementById(id);
